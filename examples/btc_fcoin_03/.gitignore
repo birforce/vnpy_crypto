@@ -1,0 +1,9 @@
+
+*.iml
+*.xml
+*.pyc
+*.log
+wss_app_double.py
+wss_app_double2.py
+webTrade.py
+config.py

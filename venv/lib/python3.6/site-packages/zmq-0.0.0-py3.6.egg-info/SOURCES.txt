@@ -1,0 +1,8 @@
+setup.cfg
+setup.py
+zmq.egg-info/PKG-INFO
+zmq.egg-info/SOURCES.txt
+zmq.egg-info/dependency_links.txt
+zmq.egg-info/pbr.json
+zmq.egg-info/requires.txt
+zmq.egg-info/top_level.txt

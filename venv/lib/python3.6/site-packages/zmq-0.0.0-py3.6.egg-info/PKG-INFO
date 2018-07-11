@@ -1,0 +1,10 @@
+Metadata-Version: 1.0
+Name: zmq
+Version: 0.0.0
+Summary: You are probably looking for pyzmq.
+Home-page: https://github.com/zeromq/pyzmq
+Author: Min RK
+Author-email: benjaminrk@gmail.com
+License: BSD
+Description: PyZMQ provides Python bindings for libzmq.
+Platform: UNKNOWN

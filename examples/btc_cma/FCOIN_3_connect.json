@@ -1,0 +1,9 @@
+{
+	"accountID": "sujinjun",
+    "accessKey": "xx",
+    "secretKey": "xxx",
+    "interval": 6,
+    "log_message": true,
+    "symbol_pairs" : ["btc_usdt","eth_usdt","ft_usdt"],
+    "auto_subscribe":["btc_usdt","eth_usdt","ft_usdt"]
+}
