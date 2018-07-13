@@ -4,8 +4,8 @@
 本文件包含了CTA引擎中的策略开发用模板，开发策略时需要继承CtaTemplate类。
 '''
 
-from datetime import datetime,timedelta
-import os,csv
+from datetime import datetime, timedelta
+import os, csv
 from vnpy.trader.app.ctaStrategy.ctaBase import *
 from vnpy.trader.vtConstant import *
 
@@ -13,41 +13,41 @@ from vnpy.trader.vtConstant import *
 ########################################################################
 class CmaTemplate(object):
     """跨市场套利策略模板"""
-    
+
     # 策略类的名称和作者
     className = 'CmaTemplate'
     author = u'李来佳'
 
     # 策略的基本参数
-    name        = 'StrategyName'        # 策略实例名称
-    vtSymbol    = EMPTY_STRING          # 交易的合约vt系统代码
-    symbol      = EMPTY_STRING          # 交易的合约代码
+    name = 'StrategyName'  # 策略实例名称
+    vtSymbol = EMPTY_STRING  # 交易的合约vt系统代码
+    symbol = EMPTY_STRING  # 交易的合约代码
 
-    base_symbol = EMPTY_STRING          # 交易主货币
-    quote_symbol = EMPTY_STRING         # 基准货币
-    master_symbol = EMPTY_STRING        # 主交易所币对
-    slave_symbol = EMPTY_STRING         # 从交易所币对
+    base_symbol = EMPTY_STRING  # 交易主货币 btc
+    quote_symbol = EMPTY_STRING  # 基准货币 usdt
+    master_symbol = EMPTY_STRING  # 主交易所币对 btc_usdt.Okex
+    slave_symbol = EMPTY_STRING  # 从交易所币对  btc_usdt.Fcoin
 
-    master_exchange = EMPTY_STRING      # 主交易所
-    slave_exchange  = EMPTY_STRING      # 次交易所
+    master_exchange = EMPTY_STRING  # 主交易所
+    slave_exchange = EMPTY_STRING  # 次交易所
 
-    master_gateway = EMPTY_STRING       # 主交易所网关
-    slave_gateway = EMPTY_STRING       # 次交易所网关
+    master_gateway = EMPTY_STRING  # 主交易所网关
+    slave_gateway = EMPTY_STRING  # 次交易所网关
 
     # 策略的基本变量，由引擎管理
-    inited = False                 # 是否进行了初始化
-    trading = False                # 是否启动交易，由引擎管理
-    backtesting = False            # 是否回测
+    inited = False  # 是否进行了初始化
+    trading = False  # 是否启动交易，由引擎管理
+    backtesting = False  # 是否回测
 
     # 参数列表，保存了参数的名称
-    paramList = ['name',
-                 'className',
-                 'author',
-                 'vtSymbol',
-                 'master_exchange',
-                 'slave_exchange',
-                 'master_gateway',
-                 'slave_gateway'
+    paramList = ['name',  # 名字
+                 'className',  # 类名
+                 'author',  # 作者
+                 'vtSymbol',  # VT合约代码
+                 'master_exchange',  # 主交易所
+                 'slave_exchange',  # 从交易所
+                 'master_gateway',  # 主交易入口
+                 'slave_gateway'  # 从交易入口
                  ]
 
     # 变量列表，保存了变量的名称
@@ -64,17 +64,18 @@ class CmaTemplate(object):
     is_7x24 = True  # 是否7x24运行
 
     # ----------------------------------------------------------------------
+
+    #
     def __init__(self, cmaEngine, setting):
-        """Constructor"""
+        """构造器"""
         self.cmaEngine = cmaEngine
 
         # 委托单状态
-        self.master_entrust = 0            # 0 表示没有委托，1 表示存在多仓的委托，-1 表示存在空仓的委托
-        self.slave_entrust = 0             # 0 表示没有委托，1 表示存在多仓的委托，-1 表示存在空仓的委托
+        # 0 表示没有委托，1 表示存在多仓的委托，-1 表示存在空仓的委托
+        self.master_entrust = 0
+        self.slave_entrust = 0
 
-        # 保存委托单编号和相关委托单的字典
-        # key为委托单编号
-        # value为该合约相关的委托单
+        # uncompletedOrders字典：key:委托单编号，value:相关委托单
         self.uncompletedOrders = {}
 
         # 设置策略的参数
@@ -84,17 +85,17 @@ class CmaTemplate(object):
             for key in self.paramList:
                 if key in setting:
                     d[key] = setting[key]
-    
+
     # ----------------------------------------------------------------------
     def onInit(self):
         """初始化策略（必须由用户继承实现）"""
         raise NotImplementedError
-    
+
     # ----------------------------------------------------------------------
     def onStart(self):
         """启动策略（必须由用户继承实现）"""
         raise NotImplementedError
-    
+
     # ----------------------------------------------------------------------
     def onStop(self):
         """停止策略（必须由用户继承实现）"""
@@ -109,18 +110,18 @@ class CmaTemplate(object):
     def onOrder(self, order):
         """收到委托变化推送（必须由用户继承实现）"""
         raise NotImplementedError
-    
+
     # ----------------------------------------------------------------------
     def onTrade(self, trade):
         """收到成交推送（必须由用户继承实现）"""
         raise NotImplementedError
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     def onBar(self, bar):
         """收到Bar推送（必须由用户继承实现）"""
         raise NotImplementedError
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def cancelOrder(self, vtOrderID):
         """撤单"""
 
@@ -128,9 +129,12 @@ class CmaTemplate(object):
         if not vtOrderID or vtOrderID == '':
             return
 
+        # 本地停止单前缀'STOPORDERPREFIX'
         if STOPORDERPREFIX in vtOrderID:
+            # 撤销停止单
             self.cmaEngine.cancelStopOrder(vtOrderID)
         else:
+            # 撤单
             self.cmaEngine.cancelOrder(vtOrderID)
 
     def saveData(self):
@@ -150,6 +154,7 @@ class CmaTemplate(object):
         for key in self.paramList:
             if key in setting:
                 d[key] = setting[key]
+
     # ----------------------------------------------------------------------
     def writeCtaLog(self, content):
         """记录CTA日志"""
@@ -193,7 +198,7 @@ class CmaTemplate(object):
 
         if not self.backtesting:
             try:
-                self.cmaEngine.writeCtaCritical(content,strategy_name=self.name)
+                self.cmaEngine.writeCtaCritical(content, strategy_name=self.name)
             except Exception as ex:
                 content = self.name + ':' + content
                 self.cmaEngine.writeCtaCritical(content)
@@ -201,21 +206,23 @@ class CmaTemplate(object):
             content = self.name + ':' + content
             self.cmaEngine.writeCtaError(content)
 
-    def sendSignal(self,direction,price, level):
+    def sendSignal(self, direction, price, level):
         """发送信号通知"""
         try:
             if not self.backtesting:
-                self.cmaEngine.sendCtaSignal(source=self.name, symbol=self.vtSymbol, direction=direction, price=price, level=level)
+                # 发出交易信号
+                self.cmaEngine.sendCtaSignal(source=self.name, symbol=self.vtSymbol, direction=direction, price=price,
+                                             level=level)
 
         except Exception as ex:
             self.writeCtaError(u'sendSignal Exception:{0}'.format(str(ex)))
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def putEvent(self):
         """发出策略状态变化事件"""
         self.cmaEngine.putStrategyEvent(self.name)
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def getEngineType(self):
         """查询当前运行的环境"""
         return self.cmaEngine.engineType
@@ -250,7 +257,6 @@ class CmaTemplate(object):
                     writer.writerow(dict_data)
         except Exception as ex:
             self.writeCtaError(u'append_data exception:{}'.format(str(ex)))
-
 
     def checkExistDelayMission(self, func):
         if len(self.delayMission) == 0:
