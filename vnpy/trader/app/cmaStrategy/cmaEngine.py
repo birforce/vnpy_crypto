@@ -107,11 +107,12 @@ class CmaEngine(object):
         self.createLogger()
 
     # 分解数字货币合约
+    # 返回：交易货币，基准货币，交易所
     def analysis_vtSymbol(self, vtSymbol):
         """
         分解数字货币合约
-        :param vtSymbol: btc_usdt.okex
-        :return: btc usdt okex
+        :param vtSymbol: btc_usdt.okex  # 交易货币_基准货币.交易所
+        :return: btc usdt okex          # 交易货币，基准货币，交易所
         """
         # 交易货币，基准货币，交易所
         base_symbol, quote_symbol, exchange = None, None, None
@@ -137,8 +138,76 @@ class CmaEngine(object):
         return base_symbol, quote_symbol, exchange
 
     # ----------------------------------------------------------------------
+    def sendOrder(self, vtSymbol, orderType, price, volume, strategy, priceType=PRICETYPE_LIMITPRICE):
+        """发单"""
+        base_symbol, quote_symbol, exchange = self.analysis_vtSymbol(vtSymbol)
+
+        contract = self.mainEngine.getContract(vtSymbol)
+        if contract is None:
+            self.writeCtaError(
+                u'vtEngine.sendOrder取不到{}合约得信息,{}发送{}委托:{},v{}'.format(vtSymbol, strategy.name, orderType, price,
+                                                                       volume))
+            return ''
+
+        req = VtOrderReq()
+        req.symbol = contract.symbol  # 合约代码
+        req.exchange = contract.exchange  # 交易所
+        req.vtSymbol = contract.vtSymbol
+        req.price = self.roundToPriceTick(contract.priceTick, price)  # 价格
+
+        req.volume = self.roundToVolumeTick(volumeTick=contract.volumeTick, volume=volume)  # 数量
+
+        req.productClass = ''
+        req.currency = ''
+
+        # 设计为CTA引擎发出的委托只允许使用限价单
+        # modified by incense, 通过参数传递
+        req.priceType = priceType  # 价格类型
+
+        # CTA委托类型映射
+        if orderType == CTAORDER_BUY:
+            req.direction = DIRECTION_LONG  # 合约方向
+            req.offset = OFFSET_OPEN  # 开/平
+        elif orderType == CTAORDER_SELL:
+            req.direction = DIRECTION_SHORT
+            req.offset = OFFSET_CLOSE
+
+        elif orderType == CTAORDER_SHORT:
+            req.direction = DIRECTION_SHORT
+            req.offset = OFFSET_OPEN
+
+        elif orderType == CTAORDER_COVER:
+            req.direction = DIRECTION_LONG
+            req.offset = OFFSET_CLOSE
+
+        vtOrderID = self.mainEngine.sendOrder(req, contract.gatewayName)  # 发单
+
+        if vtOrderID is None or len(vtOrderID) == 0:
+            self.writeCtaError(
+                u'{} 发送委托失败. {} {} {} {}'.format(strategy.name if strategy else 'CtaEngine', vtSymbol, req.offset,
+                                                 req.direction, volume, price))
+            return ''
+
+        if strategy:
+            self.orderStrategyDict[vtOrderID] = strategy  # 保存vtOrderID和策略的映射关系
+
+            self.writeCtaLog(u'策略%s发送委托，%s, %s，%s，%s@%s'
+                             % (strategy.name, vtSymbol, req.offset, req.direction, volume, price))
+        else:
+            self.writeCtaLog(u'%s发送委托，%s, %s，%s，%s@%s'
+                             % ('CtaEngine', vtSymbol, req.offset, req.direction, volume, price))
+        return vtOrderID
+
+    # ----------------------------------------------------------------------
     def cancelOrder(self, vtOrderID):
-        """撤单"""
+        """
+            ---撤单
+            1.查询委托单
+            2.检查委托单是否有效
+            3.检查是否执行状态或撤销状态
+            4.VtCancelOrderReq写入属性
+            5.调用cancelOrder进行撤单
+        """
         # 1.调用主引擎接口，查询委托单对象
         order = self.mainEngine.getOrder(vtOrderID)
 
@@ -146,6 +215,7 @@ class CmaEngine(object):
         if order:
             # 2.检查是否报单（委托单）还有效，只有有效时才发出撤单指令
             orderFinished = (order.status == STATUS_ALLTRADED or order.status == STATUS_CANCELLED)
+            # 不是执行状态或撤销状态
             if not orderFinished:
                 # 撤单时传入的对象类VtCancelOrderReq
                 req = VtCancelOrderReq()
@@ -167,7 +237,12 @@ class CmaEngine(object):
 
     # ----------------------------------------------------------------------
     def cancelOrders(self, symbol, offset=EMPTY_STRING):
-        """撤销所有单"""
+        """
+            ---撤销所有单
+            1.返回所有的活跃的委托
+            2.遍历委托，判断symbol和offset是否为空，为空则为True
+            3.如果都为True，则调用cancelOrder进行撤单
+        """
         # Symbol参数:指定合约的撤单；
         # OFFSET参数:指定Offset的撤单,缺省不填写时，为所有
 
@@ -205,7 +280,14 @@ class CmaEngine(object):
 
     # ----------------------------------------------------------------------
     def sendStopOrder(self, vtSymbol, orderType, price, volume, strategy):
-        """发停止单（本地实现）"""
+        """
+            ---发停止单（本地实现）
+            1.生成本地停止单ID
+            2.创建stopOrder对象
+            3.标识委托单类型
+            4.保存stopOrder对象到字典中
+            5.返回停止单ID
+        """
 
         # 1.生成本地停止单ID
         self.stopOrderCount += 1
@@ -224,8 +306,8 @@ class CmaEngine(object):
 
         # 委托单类型 = u'买开'
         if orderType == CTAORDER_BUY:
-            so.direction = DIRECTION_LONG
-            so.offset = OFFSET_OPEN
+            so.direction = DIRECTION_LONG  # 方向：多头
+            so.offset = OFFSET_OPEN  # ？
 
         # 委托单类型 = u'卖平'
         elif orderType == CTAORDER_SELL:
@@ -262,6 +344,7 @@ class CmaEngine(object):
         if stopOrderID in self.workingStopOrderDict:
             so = self.workingStopOrderDict[stopOrderID]  # 获取停止单
             so.status = STOPORDER_CANCELLED  # STOPORDER_WAITING =》STOPORDER_CANCELLED
+            # 2.删除停止单
             del self.workingStopOrderDict[stopOrderID]  # 停止单撤销后会从本字典中删除
             self.writeCtaLog(u'撤销停止单:{0}成功.'.format(stopOrderID))
             return True
@@ -271,7 +354,17 @@ class CmaEngine(object):
 
     # ----------------------------------------------------------------------
     def processStopOrder(self, tick):
-        """收到行情后处理本地停止单（检查是否要立即发出）"""
+        """
+            ----收到行情后处理本地停止单（检查是否要立即发出）
+            1.检查是否有策略交易该合约
+            2.遍历等待中的停止单
+            3.触发标识判断
+            4.触发处理
+            5.设定价格
+            6.更新停止单状态
+            7.发单
+            8.本地停止单字典删除停止单
+        """
         vtSymbol = tick.vtSymbol
 
         # 1.首先检查是否有策略交易该合约
@@ -279,7 +372,7 @@ class CmaEngine(object):
             # 2.遍历等待中的停止单，检查是否会被触发
             for so in (self.workingStopOrderDict.values()):
                 if so.vtSymbol == vtSymbol:
-                    # 3. 触发标识判断--------------------------
+                    # 3. 触发标识判断
                     # 多头停止单标识
                     longTriggered = so.direction == DIRECTION_LONG and tick.lastPrice >= so.price
                     # 空头停止单标识
@@ -305,7 +398,14 @@ class CmaEngine(object):
 
     # ----------------------------------------------------------------------
     def procecssTickEvent(self, event):
-        """处理行情推送事件"""
+        """
+            ---处理行情推送事件
+            1.获取事件的Ticket数据
+            2.移除字典中已订阅的合约清单
+            3.缓存此ticket
+            4.收到ticket行情后，优先处理本地停止单
+            5.
+        """
 
         # 1. 获取事件的Ticket数据
         tick = event.dict_['data']
@@ -316,7 +416,7 @@ class CmaEngine(object):
             # 移除字典中已订阅的合约清单
             del self.pendingSubcribeSymbols[tick.vtSymbol]
 
-        # 缓存最新ticket
+        # 缓存此ticket
         self.tickDict[tick.vtSymbol] = tick
 
         # 2.收到ticket行情后，优先处理本地停止单（检查是否要立即发出）
@@ -1872,7 +1972,7 @@ class CmaEngine(object):
             # abs函数:返回数字的绝对值；as_tuple():返回数字的命名元组表示
             # .exponent：指数形式
             if abs(price_exponent.as_tuple().exponent) > abs(tick_exponent.as_tuple().exponent):
-                #？
+                # ？
                 newPrice = round(newPrice, ndigits=abs(tick_exponent.as_tuple().exponent))
                 newPrice = float(str(newPrice))
         return newPrice
@@ -1886,7 +1986,7 @@ class CmaEngine(object):
             v_exponent = decimal.Decimal(str(newVolume))
             vt_exponent = decimal.Decimal(str(volumeTick))
             if abs(v_exponent.as_tuple().exponent) > abs(vt_exponent.as_tuple().exponent):
-                #？
+                # ？
                 newVolume = round(newVolume, ndigits=abs(vt_exponent.as_tuple().exponent))
                 newVolume = float(str(newVolume))
 
