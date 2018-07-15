@@ -908,11 +908,11 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             # 主交易货币对M1K线插入Ticket
             self.lineMaster.onTick(tick)
 
-            self.master_base_position = self.cmaEngine.posBufferDict.get(
+            self.master_base_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.base_symbol, self.master_exchange]),
                 None)
 
-            self.master_quote_position = self.cmaEngine.posBufferDict.get(
+            self.master_quote_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.quote_symbol, self.master_exchange]), None)
 
         # vt系统合约代码 == 从交易所币对；
@@ -922,11 +922,11 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             self.lineSlave.onTick(tick)
 
             # 从交易所交易货币持仓 = 持仓缓存字典交易货币合约代码和从交易所为空的持仓
-            self.slave_base_position = self.cmaEngine.posBufferDict.get(
+            self.slave_base_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.base_symbol, self.slave_exchange]),
                 None)
             # 从交易所基准货币持仓 = 持仓缓存字典基准货币合约代码和从交易所为空的持仓
-            self.slave_quote_position = self.cmaEngine.posBufferDict.get(
+            self.slave_quote_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.quote_symbol, self.slave_exchange]),
                 None)
 
