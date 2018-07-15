@@ -1687,14 +1687,14 @@ class CmaEngine(object):
         if name in self.strategyDict:
             # 获取策略实例
             strategy = self.strategyDict[name]
-            # 变量字典？
+            # OrderedDict字典:按先后顺序排序
             varDict = OrderedDict()
 
-            # 遍历变量列表
+            # 遍历策略变量列表
             for key in strategy.varList:
-                # 策略里存在key
+                # 策略实例里存在key
                 if hasattr(strategy, key):
-                    # ？
+                    # 变量字典
                     varDict[key] = strategy.__getattribute__(key)
 
             return varDict
@@ -1859,14 +1859,20 @@ class CmaEngine(object):
         if not priceTick:
             return price
 
-        #
+        # round（x,y）：方法返回浮点数x的四舍五入值,小数点后保留y位
+        # priceTick：合约最小价格TICKET
         newPrice = round(price / priceTick, 0) * priceTick
 
         # 是否为浮点型
         if isinstance(priceTick, float):
+            # price_exponent：价格指数；tick_exponent：ticket指数
+            # newPrice转为转为Decimal类型
             price_exponent = decimal.Decimal(str(newPrice))
             tick_exponent = decimal.Decimal(str(priceTick))
+            # abs函数:返回数字的绝对值；as_tuple():返回数字的命名元组表示
+            # .exponent：指数形式
             if abs(price_exponent.as_tuple().exponent) > abs(tick_exponent.as_tuple().exponent):
+                #？
                 newPrice = round(newPrice, ndigits=abs(tick_exponent.as_tuple().exponent))
                 newPrice = float(str(newPrice))
         return newPrice
@@ -1874,11 +1880,13 @@ class CmaEngine(object):
     def roundToVolumeTick(self, volumeTick, volume):
         if volumeTick == 0:
             return volume
+
         newVolume = round(volume / volumeTick, 0) * volumeTick
         if isinstance(volumeTick, float):
             v_exponent = decimal.Decimal(str(newVolume))
             vt_exponent = decimal.Decimal(str(volumeTick))
             if abs(v_exponent.as_tuple().exponent) > abs(vt_exponent.as_tuple().exponent):
+                #？
                 newVolume = round(newVolume, ndigits=abs(vt_exponent.as_tuple().exponent))
                 newVolume = float(str(newVolume))
 

@@ -145,6 +145,7 @@ class CtaEngine(object):
         """发单"""
         base_symbol, quote_symbol, exchange = self.analysis_vtSymbol(vtSymbol)
 
+        # 查询合约
         contract = self.mainEngine.getContract(vtSymbol)
         if contract is None:
             self.writeCtaError(
@@ -152,10 +153,10 @@ class CtaEngine(object):
                                                                          volume))
             return ''
 
-        req = VtOrderReq()
+        req = VtOrderReq() # 发单时传入的对象类
         req.symbol = contract.symbol  # 合约代码
         req.exchange = contract.exchange # 交易所
-        req.vtSymbol = contract.vtSymbol
+        req.vtSymbol = contract.vtSymbol #vt合约代码
         req.price = self.roundToPriceTick(contract.priceTick, price)  # 价格
 
         req.volume = self.roundToVolumeTick(volumeTick=contract.volumeTick,volume=volume)  # 数量
