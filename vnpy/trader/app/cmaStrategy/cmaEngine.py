@@ -1184,7 +1184,7 @@ class CmaEngine(object):
 
             # 如果是多单
             if expired_pos['direction'] == 'long':
-                # 获取持仓缓存字典中剩余仓位的vtSymbol
+                # 获取持仓缓存中vtSymbol的持仓
                 curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
                 if curPos is None:
                     self.writeCtaCritical(u'ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(expired_pos['vtSymbol']))
@@ -1212,17 +1212,17 @@ class CmaEngine(object):
                         self.mainEngine.dbDelete(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, flt)
                     continue
 
-                # 卖出的昨天多单手数，卖出的今天多单手数
+                # 昨天需平仓数，今天需平仓数
                 sell_longYd, sell_longToday = 0, 0
                 self.writeCtaLog(u'{}持仓昨{}/今{}'.format(expired_pos['vtSymbol'], curPos.longYd, curPos.longToday))
 
-                # 昨天多单手数 + 今天多单手数 < 平仓数量
+                # 昨天持仓 + 今天持仓 < 平仓数量
                 if curPos.longYd + curPos.longToday < expired_pos['volume']:
                     self.writeCtaCritical(
                         u'{} ctaEngineclear_dispatch_pos, 持仓昨{}/今{},不满足平仓数量{}'.format(datetime.now(), curPos.longYd,
                                                                                       curPos.longToday,
                                                                                       expired_pos['volume']))
-                    # 卖出的昨天多单手数，卖出的今天多单手数 = 剩余仓位的昨天多单手数，剩余仓位的今天多单手数
+                    # 昨天需平仓数，今天需平仓数 = 昨天持仓，今天持仓
                     sell_longYd, sell_longToday = curPos.longYd, curPos.longToday
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
                          'vtSymbol': expired_pos['vtSymbol'], 'direction剩余': expired_pos['direction'],
@@ -1233,27 +1233,27 @@ class CmaEngine(object):
                     self.mainEngine.dbInsert(MATRIX_DB_NAME, POSITION_DISPATCH_HISTORY_COLL_NAME, h)
 
                 else:
-                    # 昨天多单手数 >= 剩余仓位的数量
+                    # 昨天持仓 >= 平仓数量
                     if curPos.longYd >= expired_pos['volume']:
-                        # 卖出的昨天多单手数 = 剩余仓位的数量
+                        # 昨天需平仓数 = 平仓数量
                         sell_longYd = expired_pos['volume']
 
-                    # 昨天多单手数 ==0
+                    # 昨天持仓 == 0
                     if curPos.longYd == 0:
-                        # 卖出的今天多单手数 = 剩余仓位的数量
+                        # 今天需平仓数 = 平仓数量
                         sell_longToday = expired_pos['volume']
                     else:
-                        # 卖出的昨天多单手数 = 剩余仓位的昨天多单手数
+                        # 昨天需平仓数 = 昨天持仓
                         sell_longYd = curPos.longYd
-                        # 卖出的今天多单手数 = 剩余仓位的数量 - 卖出的昨天多单手数
+                        # 今天需平仓数 = 平仓数量 - 昨天需平仓数
                         sell_longToday = expired_pos['volume'] - sell_longYd
 
-                # 卖出的昨天多单手数 > 0
+                # 昨天需平仓数 > 0
                 if sell_longYd > 0:
                     self.writeCtaLog(
                         u'clear_dispatch_pos发出平昨多仓:{},数量:{}，价格:{}'.format(expired_pos['vtSymbol'], sell_longYd,
                                                                           tick.lowerLimit))
-                    # 发单（合约代码，u'卖平'，跌停价，数量）
+                    # 发单（合约代码，u'卖平'，跌停价，昨天需平仓数）
                     order_id = self.sendOrder(expired_pos['vtSymbol'], orderType=CTAORDER_SELL, price=tick.lowerLimit,
                                               volume=sell_longYd, strategy=None, priceType=PRICETYPE_FAK)
                     if order_id:
@@ -1275,11 +1275,11 @@ class CmaEngine(object):
                     # 插入数据
                     self.mainEngine.dbInsert(MATRIX_DB_NAME, POSITION_DISPATCH_HISTORY_COLL_NAME, h)
 
-                # 卖出的今天多单手数 > 0
+                # 今天需平仓数 > 0
                 if sell_longToday > 0:
                     self.writeCtaLog(
                         u'clear_dispatch_pos发出平今多仓:{},数量:{}'.format(expired_pos['vtSymbol'], sell_longToday))
-                    # 发单（合约代码，u'卖平'，跌停价，数量）
+                    # 发单（合约代码，u'卖平'，跌停价，今天需平仓数）
                     order_id = self.sendOrder(vtSymbol=expired_pos['vtSymbol'], orderType=CTAORDER_SELL,
                                               price=tick.lowerLimit,
                                               volume=sell_longToday, strategy=None)
@@ -1304,8 +1304,11 @@ class CmaEngine(object):
                 flt = {'_id': expired_pos['_id']}
                 self.mainEngine.dbDelete(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, flt)
 
+            # 如果是空单
             if expired_pos['direction'] == 'short':
+                # 获取持仓缓存中vtSymbol的空单合约的持仓
                 curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
+                # 找不到持仓
                 if curPos is None:
                     self.writeCtaCritical(
                         u'{} ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(datetime.now(), expired_pos['vtSymbol']))
@@ -1321,23 +1324,28 @@ class CmaEngine(object):
                         expired_pos['retry'] += 1
                         expired_pos['datetime'] = datetime.now() + timedelta(minutes=2)
                         flt = {'_id': expired_pos['_id']}
+                        # 数据更新
                         self.mainEngine.dbUpdate(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, expired_pos, flt)
                         self.writeCtaLog(u'更新下次检查的时间:{}'.format(expired_pos))
                     else:
                         self.writeCtaCritical(u'clear_dispatch_pos,持仓信息 为空，尝试超过三次：{},删除'.format(expired_pos))
                         flt = {'_id': expired_pos['_id']}
+                        # 删除数据
                         self.mainEngine.dbDelete(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, flt)
 
                     continue
 
+                # 昨天需平仓数，今天需平仓数
                 cover_shortYd, cover_shortToday = 0, 0
                 self.writeCtaLog(u'{}持仓昨{}/今{},'.format(expired_pos['volume'], curPos.shortYd, curPos.shortToday))
 
+                # 昨天持仓 + 今天持仓 < 平仓数量
                 if curPos.shortYd + curPos.shortToday < expired_pos['volume']:
                     self.writeCtaCritical(
                         u'{} ctaEngineclear_dispatch_pos, 持仓昨{}/今{},不满足平仓数量{}'.format(datetime.now(), curPos.shortYd,
                                                                                       curPos.shortToday,
                                                                                       expired_pos['volume']))
+                    # 昨天需平仓数，今天需平仓数 = 昨天持仓，今天持仓
                     cover_shortYd, cover_shortToday = curPos.shortYd, curPos.shortToday
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
                          'vtSymbol': expired_pos['vtSymbol'], 'direction': expired_pos['direction'],
@@ -1347,21 +1355,30 @@ class CmaEngine(object):
                     self.mainEngine.dbInsert(MATRIX_DB_NAME, POSITION_DISPATCH_HISTORY_COLL_NAME, h)
 
                 else:
+                    # 昨天持仓 >= 平仓数量
                     if curPos.shortYd >= expired_pos['volume']:
+                        # 昨天需平仓数 = 平仓数量
                         cover_shortYd = expired_pos['volume']
+                    # 昨天持仓 == 0
                     elif curPos.shortYd == 0:
+                        # 今天需平仓数 = 平仓数量
                         cover_shortToday = expired_pos['volume']
                     else:
+                        # 昨天需平仓数 = 昨天持仓
                         cover_shortYd = curPos.shortYd
+                        # 今天需平仓数 = 平仓数量 - 昨天需平仓数
                         cover_shortToday = expired_pos['volume'] - cover_shortYd
 
+                # 昨天需平仓数 > 0
                 if cover_shortYd > 0:
                     self.writeCtaLog(u'clear_dispatch_pos发出平昨空仓:{},数量:{}'.format(expired_pos['volume'], cover_shortYd))
+                    # 发单（合约代码，u'买平'，涨停价，昨天需平仓数）
                     order_id = self.sendOrder(vtSymbol=expired_pos['vtSymbol'], orderType=CTAORDER_COVER,
                                               price=tick.upperLimit,
                                               volume=cover_shortYd, strategy=None, priceType=PRICETYPE_FAK)
 
                     if order_id:
+                        # 插入持仓调度记录
                         self.dispatch_pos_order_dict[order_id] = {'vtSymbol': expired_pos['vtSymbol'],
                                                                   'orderType': CTAORDER_COVER,
                                                                   'price': tick.upperLimit, 'volume': cover_shortYd,
@@ -1378,14 +1395,18 @@ class CmaEngine(object):
                          'result': True if order_id else False, 'datetime': datetime.now()}
                     self.mainEngine.dbInsert(MATRIX_DB_NAME, POSITION_DISPATCH_HISTORY_COLL_NAME, h)
 
+                # 今天需平仓数 > 0
                 if cover_shortToday > 0:
                     self.writeCtaLog(
                         u'clear_dispatch_pos发出平今空仓:{},数量:{}'.format(expired_pos['volume'], cover_shortToday))
+
+                    # # 发单（合约代码，u'买平'，涨停价，今天需平仓数）
                     order_id = self.sendOrder(vtSymbol=expired_pos['vtSymbol'], orderType=CTAORDER_COVER,
                                               price=tick.upperLimit,
                                               volume=cover_shortToday, strategy=None, priceType=PRICETYPE_FAK)
 
                     if order_id:
+                        # 插入持仓调度记录
                         self.dispatch_pos_order_dict[order_id] = {'vtSymbol': expired_pos['vtSymbol'],
                                                                   'orderType': CTAORDER_COVER,
                                                                   'price': tick.upperLimit, 'volume': cover_shortToday,
@@ -1403,6 +1424,7 @@ class CmaEngine(object):
 
                 self.writeCtaLog(u'清除当前持仓{}'.format(expired_pos))
                 flt = {'_id': expired_pos['_id']}
+                # 删除expired_pos['_id']
                 self.mainEngine.dbDelete(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, flt)
 
     def onOrder_dispatch_close_pos(self, order):
