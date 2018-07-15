@@ -35,8 +35,8 @@ class CmaTemplate(object):
     slave_gateway = EMPTY_STRING  # 次交易所网关
 
     # 策略的基本变量，由引擎管理
-    inited = False  # 是否进行了初始化
-    trading = False  # 是否启动交易，由引擎管理
+    isInited = False  # 是否进行了初始化
+    isTrading = False  # 是否启动交易，由引擎管理
     backtesting = False  # 是否回测
 
     # 参数列表，保存了参数的名称
@@ -51,8 +51,8 @@ class CmaTemplate(object):
                  ]
 
     # 变量列表，保存了变量的名称
-    varList = ['inited',
-               'trading',
+    varList = ['isInited',
+               'isTrading',
                'master_entrust',
                'slave_entrust']
 

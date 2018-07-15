@@ -77,7 +77,7 @@ class CmaEngine(object):
 
         # 持仓缓存字典
         # key为vtSymbol，value为PositionBuffer对象
-        self.posBufferDict = {}
+        self.positionBufferDict = {}
 
         # 成交号集合，用来过滤已经收到过的成交推送
         self.tradeSet = set()
@@ -412,11 +412,11 @@ class CmaEngine(object):
 
         # 更新持仓缓存数据
         if trade.vtSymbol in self.tickStrategyDict:
-            posBuffer = self.posBufferDict.get(trade.vtSymbol, None)
+            posBuffer = self.positionBufferDict.get(trade.vtSymbol, None)
             if not posBuffer:
                 posBuffer = PositionBuffer()
                 posBuffer.vtSymbol = trade.vtSymbol
-                self.posBufferDict[trade.vtSymbol] = posBuffer
+                self.positionBufferDict[trade.vtSymbol] = posBuffer
             posBuffer.updateTradeData(trade)
 
     # ----------------------------------------------------------------------
@@ -427,11 +427,11 @@ class CmaEngine(object):
 
         # 更新持仓缓存数据
         if True:  # pos.vtSymbol in self.tickStrategyDict:
-            posBuffer = self.posBufferDict.get(pos.vtSymbol, None)
+            posBuffer = self.positionBufferDict.get(pos.vtSymbol, None)
             if not posBuffer:
                 posBuffer = PositionBuffer()
                 posBuffer.vtSymbol = pos.vtSymbol
-                self.posBufferDict[pos.vtSymbol] = posBuffer
+                self.positionBufferDict[pos.vtSymbol] = posBuffer
             posBuffer.updatePositionData(pos)
 
     # ----------------------------------------------------------------------
@@ -469,7 +469,7 @@ class CmaEngine(object):
 
         self.cancelOrders(symbol=EMPTY_STRING)
 
-        for posBuffer in (self.posBufferDict.values()):
+        for posBuffer in (self.positionBufferDict.values()):
 
             if posBuffer.shortYd > 0:
                 self.writeCtaLog(u'{0}合约持有昨空单{1}手，强平'.format(posBuffer.vtSymbol, posBuffer.shortYd))
@@ -1125,7 +1125,7 @@ class CmaEngine(object):
 
             # 如果是多单
             if expired_pos['direction'] == 'long':
-                curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
+                curPos = self.positionBufferDict.get(expired_pos['vtSymbol'], None)
                 if curPos is None:
                     self.writeCtaCritical(u'ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(expired_pos['vtSymbol']))
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
@@ -1212,7 +1212,7 @@ class CmaEngine(object):
                 self.mainEngine.dbDelete(MATRIX_DB_NAME, POSITION_DISPATCH_COLL_NAME, flt)
 
             if expired_pos['direction'] == 'short':
-                curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
+                curPos = self.positionBufferDict.get(expired_pos['vtSymbol'], None)
                 if curPos is None:
                     self.writeCtaCritical(u'{} ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(datetime.now(), expired_pos['vtSymbol']))
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
@@ -1777,7 +1777,7 @@ class CmaEngine(object):
         self.tickDict = {}
         self.orderStrategyDict = {}
         self.workingStopOrderDict = {}
-        self.posBufferDict = {}
+        self.positionBufferDict = {}
         self.stopOrderDict = {}
 
     def qryStatus(self):
