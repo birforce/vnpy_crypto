@@ -19,6 +19,24 @@ RUNING = u'Runing'   # 正常运行；
 FORCECLOSING = u'ForceClosing'  #正在关闭
 FORCECLOSED = u'ForceClosed'    #:已经关闭
 
+# 交易方向
+DIRECTION_LONG = u'DirectionLong'      # 做多
+DIRECTION_SHORT = u'DirectionShort'    # 做空
+
+# 交易属性
+PRICETYPE_LIMITPRICE = u'PriceTypeLimitPrice'
+OFFSET_OPEN = u'OffsetOpen'
+OFFSET_CLOSE = u'OffsetClose'
+STATUS_ALLTRADED = u'StatusAllTraded'
+STATUS_CANCELLED = u'StatusCancelled'
+STATUS_REJECTED = u'StatusRejected'
+
+# 交易所
+EXCHANGE_OKEX = u'Okex'
+EXCHANGE_BINANCE = u'Binance'
+EXCHANGE_GATEIO = u'GateIo'
+EXCHANGE_FCOIN = u'FCoin'
+
 from vnpy.trader.language import constant
 
 # 将常量定义添加到vtConstant.py的局部字典中
