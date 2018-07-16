@@ -483,15 +483,13 @@ class CmaEngine(object):
         # 若合约代码在映射字典里
         if trade.vtSymbol in self.tickStrategyDict:
             # 获取持仓缓存字典中trade的vt合约代码，没有返回空
-            posBuffer = self.posBufferDict.get(trade.vtSymbol, None)
-            # 如果持仓缓存为空
+            posBuffer = self.positionBufferDict.get(trade.vtSymbol, None)
             if not posBuffer:
                 # 创建一个持仓缓存对象
-                posBuffer = PositionBuffer()
+                posBuffer = positionBufferDict()
                 posBuffer.vtSymbol = trade.vtSymbol
                 # 插入持仓缓存字典中
-                self.posBufferDict[trade.vtSymbol] = posBuffer
-                # 持仓缓存更新成交数据
+                self.positionBufferDict[trade.vtSymbol] = posBuffer
             posBuffer.updateTradeData(trade)
 
     # ----------------------------------------------------------------------
@@ -502,12 +500,12 @@ class CmaEngine(object):
 
         # 更新持仓缓存数据
         if True:  # pos.vtSymbol in self.tickStrategyDict:
-            posBuffer = self.posBufferDict.get(pos.vtSymbol, None)
+            posBuffer = self.positionBufferDict.get(pos.vtSymbol, None)
             if not posBuffer:
                 posBuffer = PositionBuffer()
                 posBuffer.vtSymbol = pos.vtSymbol
-                self.posBufferDict[pos.vtSymbol] = posBuffer
-            # 更新持仓数据
+                # 更新持仓数据
+                self.positionBufferDict[pos.vtSymbol] = posBuffer
             posBuffer.updatePositionData(pos)
 
     # ----------------------------------------------------------------------
@@ -546,7 +544,7 @@ class CmaEngine(object):
         # 撤销所有单
         self.cancelOrders(symbol=EMPTY_STRING)
         # 遍历字典中持仓缓存
-        for posBuffer in (self.posBufferDict.values()):
+        for posBuffer in (self.positionBufferDict.values()):
 
             # 此合约持有昨天空单手数大于0
             if posBuffer.shortYd > 0:
@@ -1285,7 +1283,7 @@ class CmaEngine(object):
             # 如果是多单
             if expired_pos['direction'] == 'long':
                 # 获取持仓缓存中vtSymbol的持仓
-                curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
+                curPos = self.positionBufferDict.get(expired_pos['vtSymbol'], None)
                 if curPos is None:
                     self.writeCtaCritical(u'ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(expired_pos['vtSymbol']))
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
@@ -1407,8 +1405,7 @@ class CmaEngine(object):
             # 如果是空单
             if expired_pos['direction'] == 'short':
                 # 获取持仓缓存中vtSymbol的空单合约的持仓
-                curPos = self.posBufferDict.get(expired_pos['vtSymbol'], None)
-                # 找不到持仓
+                curPos = self.positionBufferDict.get(expired_pos['vtSymbol'], None)
                 if curPos is None:
                     self.writeCtaCritical(
                         u'{} ctaEngine.clear_dispatch_pos,{}没有在持仓中'.format(datetime.now(), expired_pos['vtSymbol']))
@@ -2056,7 +2053,7 @@ class CmaEngine(object):
         self.tickDict = {}
         self.orderStrategyDict = {}
         self.workingStopOrderDict = {}
-        self.posBufferDict = {}
+        self.positionBufferDict = {}
         self.stopOrderDict = {}
 
     def qryStatus(self):
