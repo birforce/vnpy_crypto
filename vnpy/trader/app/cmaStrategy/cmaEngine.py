@@ -1323,7 +1323,7 @@ class CmaEngine(object):
                     # 昨天需平仓数，今天需平仓数 = 昨天持仓，今天持仓
                     sell_longYd, sell_longToday = curPos.longYd, curPos.longToday
                     h = {'strategy_group': self.strategy_group, 'strategy': 'clear_dispatch_pos',
-                         'vtSymbol': expired_pos['vtSymbol'], 'direction剩余': expired_pos['direction'],
+                         'vtSymbol': expired_pos['vtSymbol'], 'direction': expired_pos['direction'],
                          'volume': curPos.longYd + curPos.longToday, 'action': 'clean',
                          'comment': 'part satisfied,require:{}'.format(expired_pos['volume']),
                          'result': True, 'datetime': datetime.now()}
