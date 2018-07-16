@@ -80,7 +80,7 @@ class CmaEngine(object):
 
         # 持仓缓存字典
         # key为vtSymbol，value为PositionBuffer对象
-        self.posBufferDict = {}
+        self.positionBufferDict = {}
 
         # 成交号集合，用来过滤已经收到过的成交推送
         self.tradeSet = set()
