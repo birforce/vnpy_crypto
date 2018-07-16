@@ -379,7 +379,7 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
         slave_bars_dict = dict([bar.datetime, bar] for bar in slave_bars)
         # 遍历master_bars
         for bar in master_bars:
-            # 返回slave_bars_dict字典中datetime为空的值
+            # 返回slave_bars_dict字典中datetime的值为bar.datetime的slave_bar
             slave_bar = slave_bars_dict.get(bar.datetime, None)
             # 若slave_bar为空，开始下次循环
             if slave_bar is None:
@@ -515,7 +515,7 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             # 报单成交数量 > 0 和 报单总数量 != 报单成交数量
             elif order.tradedVolume > 0 and not order.totalVolume == order.tradedVolume:
                 # 委托单部分成交
-                # __onOrderPartTraded：获取orderkey为空的委托单，更新委托单的成交数量，写入日志
+                # __onOrderPartTraded：获取orderkey的委托单，更新委托单的成交数量，写入日志
                 self.__onOrderPartTraded(order)
 
             # 撤销状态或拒绝状态的委托单
@@ -562,13 +562,13 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
         except Exception as ex:
             self.writeCtaLog(u'onOrder uncompletedOrders中找不到{0}'.format(orderkey))
 
-    # 委托单部分成交（获取orderkey为空的委托单，更新委托单的成交数量，写入日志）
+    # 委托单部分成交（获取orderkey的委托单，更新委托单的成交数量，写入日志）
     def __onOrderPartTraded(self, order):
         """订单部分成交"""
         self.writeCtaLog(u'onOrderPartTraded(),{0},委托单部分完成'.format(order.orderTime))
         # 委托单编号
         orderkey = order.gatewayName + u'.' + order.orderID
-        # 在uncompletedOrders中获取orderkey为空的委托单
+        # 在uncompletedOrders中获取orderkey的委托单,没有返回空
         uncompletedOrder = self.uncompletedOrders.get(orderkey, None)
         if uncompletedOrder is not None:
             self.writeCtaLog(u'更新订单{}部分完成:{}=>{}'.format(uncompletedOrder, uncompletedOrder.get('TradedVolume', 0.0), order.tradedVolume))
@@ -921,11 +921,11 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             # 插入Ticket
             self.lineSlave.onTick(tick)
 
-            # 从交易所交易货币持仓 = 持仓缓存字典交易货币合约代码和从交易所为空的持仓
+            # 从交易所交易货币持仓 = 持仓缓存字典交易货币合约代码和从交易所的持仓
             self.slave_base_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.base_symbol, self.slave_exchange]),
                 None)
-            # 从交易所基准货币持仓 = 持仓缓存字典基准货币合约代码和从交易所为空的持仓
+            # 从交易所基准货币持仓 = 持仓缓存字典基准货币合约代码和从交易所的持仓
             self.slave_quote_position = self.cmaEngine.positionBufferDict.get(
                 '.'.join([self.quote_symbol, self.slave_exchange]),
                 None)

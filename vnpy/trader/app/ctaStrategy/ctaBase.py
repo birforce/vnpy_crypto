@@ -9,10 +9,10 @@ print('load ctaBase.py')
 
 # 常量定义
 # CTA引擎中涉及到的交易方向类型
-CTAORDER_BUY = u'买开'
-CTAORDER_SELL = u'卖平'
-CTAORDER_SHORT = u'卖开'
-CTAORDER_COVER = u'买平'
+CTAORDER_BUY = u'买入开多'
+CTAORDER_SELL = u'卖出平多'
+CTAORDER_SHORT = u'卖出开空'
+CTAORDER_COVER = u'买入平空'
 
 CTAORDER_OPEN_REJECT = u'开单拒绝'
 CTAORDER_OPEN_FAIL = u'开单失败'

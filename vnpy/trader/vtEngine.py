@@ -453,6 +453,7 @@ class MainEngine(object):
                 self.dbClient.server_info()
 
                 self.writeLog(text.DATABASE_CONNECTING_COMPLETED)
+                # 连接状态
                 self.db_has_connected = True
 
                 # 如果启动日志记录，则注册日志事件监听函数
@@ -469,14 +470,17 @@ class MainEngine(object):
     def dbInsert(self, dbName, collectionName, d):
         """向MongoDB中插入数据，d是具体数据"""
         try:
+            # mongodb客户端
             if self.dbClient:
                 db = self.dbClient[dbName]
                 collection = db[collectionName]
                 collection.insert_one(d)
             else:
                 self.writeLog(text.DATA_INSERT_FAILED)
+                # 判断是否连接
                 if self.db_has_connected:
                     self.writeLog(u'重新尝试连接数据库')
+                    # 重新连接
                     self.dbConnect()
 
         except AutoReconnect as ex:
@@ -774,6 +778,7 @@ class DataEngine(object):
     def getContract(self, vtSymbol):
         """查询合约对象"""
         try:
+            # 返回合约字典中的合约对象
             return self.contractDict[vtSymbol]
         except KeyError:
             return None
