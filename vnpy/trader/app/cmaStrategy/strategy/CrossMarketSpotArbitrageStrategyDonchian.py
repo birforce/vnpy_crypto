@@ -667,8 +667,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         # 价差超过唐奇安通道上轨，预测其会回归中线=》高位卖出---------------------------
         # 价差ticket.卖价 > 1分钟价差K线唐奇安通道.上轨 和 比率ticket.卖价 >= 1.001
-        if spread_tick.askPrice1 > self.donchianUpperBand[-1] \
-                and self.last_master_tick.askPrice1 / self.last_slave_tick.bidPrice1 >= 1.001:
+        if spread_tick.bidPrice1 > self.donchianUpperBand[-1] \
+                and self.last_master_tick.bidPrice1 / self.last_slave_tick.askPrice1 >= 1.001:
             self.writeCtaLog(u'Short Signal:{},sell master:{}/{}/{},buy slave:{}/{}/{}'
                              .format(spread_tick.bidPrice1,
                                      self.last_master_tick.askPrice1, self.last_master_tick.lastPrice,
@@ -683,8 +683,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         # 价差低于唐奇安通道下轨，预测其会回归中线=》低位买入---------------------------
         # spread_tick.买价 < 1分钟价差K线.下轨 和 ratio_tick.买价 <= 0.999
-        if spread_tick.bidPrice1 < self.lineDiff.lineLowerBand[-1] \
-                and self.last_master_tick.bidPrice1 / self.last_slave_tick.askPrice1 <= 0.999:
+        if spread_tick.askPrice1 < self.lineDiff.lineLowerBand[-1] \
+                and self.last_master_tick.askPrice1 / self.last_slave_tick.bidPrice1 <= 0.999:
             self.writeCtaLog(u'Buy Signal:{}, buy master:{}/{}/{}, sell slave:{}/{}/{}'
                              .format(spread_tick.askPrice1,
                                      self.last_master_tick.askPrice1, self.last_master_tick.lastPrice,
