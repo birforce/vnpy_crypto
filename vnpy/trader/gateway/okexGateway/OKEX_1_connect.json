@@ -1,7 +1,7 @@
 {
     "commeent":"incense",
-    "apiKey": "",
-    "secretKey": "",
+    "apiKey": "xxx",
+    "secretKey": "xxx",
     "trace": false,
     "leverage": 10,
     "spot_connect": true,
