@@ -247,6 +247,9 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         elif exchange_name == EXCHANGE_BINANCE:
             from vnpy.data.binance.binance_data import BinanceData
             ds = BinanceData(self)
+        elif exchange_name == EXCHANGE_GATEIO:
+            from vnpy.data.gateio.gateio_data import GateioData
+            ds = GateioData(self)
 
         return ds
 
@@ -508,12 +511,12 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         maxPriceDiff = sys.maxsize
         minPriceDiff = -1 * sys.maxsize
         # 对比前20个bar的close价格
-        for secondaryLineDiffIndex in range(len(self.lineDiff.lineBar) - 2, lineDiffIndex - 21, -1):
+        for secondaryLineDiffIndex in range(len(self.lineDiff.lineBar) - 2, len(self.lineDiff.lineBar) - 21, -1):
             if secondaryLineDiffIndex < 0:
                 continue
-            if self.lineDiff.lineBar[secondaryLineDiffIndex].close < self.donchianLowerBand:
+            if self.lineDiff.lineBar[secondaryLineDiffIndex].close < self.donchianLowerBand[-1]:
                 minPriceDiff = self.lineDiff.lineBar[secondaryLineDiffIndex].close
-            if self.lineDiff.lineBar[secondaryLineDiffIndex].close > self.donchianUpperBand:
+            if self.lineDiff.lineBar[secondaryLineDiffIndex].close > self.donchianUpperBand[-1]:
                 maxPriceDiff = self.lineDiff.lineBar[secondaryLineDiffIndex].close
         self.donchianUpperBand.append(maxPriceDiff)
         self.donchianLowerBand.append(minPriceDiff)

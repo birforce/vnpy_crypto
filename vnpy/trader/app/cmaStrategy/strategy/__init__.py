@@ -42,7 +42,7 @@ print('init strategies from {}'.format(path))
 for root, subdirs, files in os.walk(path):
     for name in files:
         # 只有文件名中包含strategy且非.pyc的文件，才是策略文件
-        if 'strategy' in name and '.pyc' not in name:
+        if ('strategy' in name or 'Strategy' in name) and '.pyc' not in name:
             # 模块名称需要上前缀
             moduleName = 'vnpy.trader.app.cmaStrategy.strategy.' + name.replace('.py', '')
             loadStrategyModule(moduleName)

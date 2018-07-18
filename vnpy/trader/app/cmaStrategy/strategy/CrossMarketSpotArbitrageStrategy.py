@@ -630,7 +630,7 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             if self.last_slave_tick is not None:
 
                 # 检查两腿tick时间是否一致（主交易所比对得最后一个ticket与从交易所比对得最后一个ticket的时间差 < 10秒）
-                if (self.last_master_tick.datetime - self.last_slave_tick.datetime).seconds <= 10:
+                if 0 <= (self.last_master_tick.datetime - self.last_slave_tick.datetime).seconds <= 10:
                     # 可以合并
                     combinable = True
 
@@ -644,7 +644,7 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
             if self.last_master_tick is not None:
 
                 # 检查两腿ticket时间是否一致（从交易所比对得最后一个ticket与主交易所比对得最后一个ticket的时间差 < 10秒）
-                if (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 10:
+                if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 10:
                     combinable = True
 
         # 不能合并，返回
