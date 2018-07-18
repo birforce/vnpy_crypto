@@ -20,18 +20,17 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 ########################################################################
 class RpcObject(object):
     """
-    RPC对象
+        ---RPC对象
+        提供对数据的序列化打包和解包接口。
     
-    提供对数据的序列化打包和解包接口，目前提供了json、msgpack、cPickle三种工具。
+        msgpack：性能更高，但通常需要安装msgpack相关工具；
+        json：性能略低但通用性更好，大部分编程语言都内置了相关的库。
+        cPickle：性能一般且仅能用于Python，但是可以直接传送Python对象，非常方便。
     
-    msgpack：性能更高，但通常需要安装msgpack相关工具；
-    json：性能略低但通用性更好，大部分编程语言都内置了相关的库。
-    cPickle：性能一般且仅能用于Python，但是可以直接传送Python对象，非常方便。
+        因此建议尽量使用msgpack，如果要和某些语言通讯没有提供msgpack时再使用json，
+        当传送的数据包含很多自定义的Python对象时建议使用cPickle。
     
-    因此建议尽量使用msgpack，如果要和某些语言通讯没有提供msgpack时再使用json，
-    当传送的数据包含很多自定义的Python对象时建议使用cPickle。
-    
-    如果希望使用其他的序列化工具也可以在这里添加。
+        使用其他序列化工具请自行添加。
     """
 
     #----------------------------------------------------------------------
@@ -106,11 +105,16 @@ class RpcObject(object):
 
 ########################################################################
 class RpcServer(RpcObject):
-    """RPC服务器"""
+    """
+        ---RPC服务器
+        初始化RpcServer
+        提供RpcServer：启动（启动线程）、停止（停止线程）、运行、推送数据到客户端、注册功能函数
+    """
 
     #----------------------------------------------------------------------
     def __init__(self, repAddress, pubAddress):
         """Constructor"""
+        # 调用RpcObject的构造器：self.usePickle()
         super(RpcServer, self).__init__()
         
         # 保存功能函数的字典，key是函数名，value是函数对象
@@ -187,9 +191,9 @@ class RpcServer(RpcObject):
         topic：主题内容
         data：具体的数据
         """
-        # 序列化数据
+        # 序列化数据（打包数据）
         datab = self.pack(data)
-        if len(topic) >0 :
+        if len(topic) > 0:
             topic = topic.encode('utf-8')
         # 通过广播socket发送数据
         self.__socketPUB.send_multipart([topic, datab])
@@ -201,7 +205,11 @@ class RpcServer(RpcObject):
 
 ########################################################################
 class RpcClient(RpcObject):
-    """RPC客户端"""
+    """
+        ---RPC客户端
+        初始化RpcClient
+        提供RpcClient：远程调用功能、启动（启动线程）、停止（停止线程）、运行、订阅广播数据
+    """
     
     #----------------------------------------------------------------------
     def __init__(self, reqAddress, subAddress):

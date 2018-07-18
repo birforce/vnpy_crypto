@@ -4,18 +4,18 @@ print('load vtEngine.py')
 
 import shelve
 from collections import OrderedDict
-import os,sys
+import os, sys
 import copy
 
 from pymongo import MongoClient
-from pymongo.errors import ConnectionFailure,AutoReconnect
-#import vnpy.trader.mongo_proxy
+from pymongo.errors import ConnectionFailure, AutoReconnect
+# import vnpy.trader.mongo_proxy
 
 from vnpy.trader.vtEvent import Event as vn_event
 from vnpy.trader.language import text
-#from vnpy.trader.app.ctaStrategy.ctaEngine import CtaEngine
-#from vnpy.trader.app.dataRecorder.drEngine import DrEngine
-#from vnpy.trader.app.riskManager.rmEngine import RmEngine
+# from vnpy.trader.app.ctaStrategy.ctaEngine import CtaEngine
+# from vnpy.trader.app.dataRecorder.drEngine import DrEngine
+# from vnpy.trader.app.riskManager.rmEngine import RmEngine
 from vnpy.trader.vtFunction import loadMongoSetting, getTempPath
 from vnpy.trader.vtGateway import *
 from vnpy.trader.app import (ctaStrategy, cmaStrategy, riskManager)
@@ -23,6 +23,7 @@ from vnpy.trader.setup_logger import setup_logger
 import traceback
 
 import psutil
+
 try:
     from .util_mail import *
 except:
@@ -30,41 +31,47 @@ except:
 
 LOG_DB_NAME = 'vt_logger'
 
+
 ########################################################################
 class MainEngine(object):
     """主引擎"""
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def __init__(self, eventEngine):
-        """Constructor"""
+        """
+            ---构造器
+            创建、启动事件引擎
+            创建数据引擎、接口缓存、应用模块缓存
+            定义扩展模块
+        """
         # 记录今日日期
         self.todayDate = datetime.now().strftime('%Y%m%d')
 
-        # 创建事件引擎
+        # 创建、启动事件引擎
         self.eventEngine = eventEngine
         self.eventEngine.start()
-        
+
         # 创建数据引擎
         self.dataEngine = DataEngine(self, self.eventEngine)
-        
+
         # MongoDB数据库相关
-        self.dbClient = None    # MongoDB客户端对象
-        self.db_has_connected = False
+        self.dbClient = None  # MongoDB客户端对象
+        self.db_has_connected = False  # 是否连接
 
         # 接口实例
         self.gatewayDict = OrderedDict()
-        self.gatewayDetailList = []
+        self.gatewayDetailList = []  # 接口详细信息
 
         # 应用模块实例
         self.appDict = OrderedDict()
-        self.appDetailList = []
+        self.appDetailList = []  # app缓存
 
         # 扩展模块
-        self.ctaEngine = None       # CtaEngine(self, self.eventEngine)  # cta策略运行模块
-        self.drEngine = None        # DrEngine(self, self.eventEngine)    # 数据记录模块
-        self.rmEngine = None        #   RmEngine(self, self.eventEngine)    # 风险管理模块
-        self.cmaEngine = None       # 跨市场套利引擎
-        self.connected_gw_names = []
+        self.ctaEngine = None  # CtaEngine(self, self.eventEngine)  # cta策略运行模块
+        self.drEngine = None  # DrEngine(self, self.eventEngine)    # 数据记录模块
+        self.rmEngine = None  # RmEngine(self, self.eventEngine)    # 风险管理模块
+        self.cmaEngine = None  # CmaEngine(self, self.eventEngine)  # 跨市场套利引擎
+        self.connected_gw_names = []  # 已连接的接口
 
         self.save_contract_counter = 0
 
@@ -74,9 +81,14 @@ class MainEngine(object):
 
     # ----------------------------------------------------------------------
     def addGateway(self, gatewayModule, gateway_name=EMPTY_STRING):
-        """添加底层接口"""
+        """
+            ---添加底层接口
+            创建接口实例
+            设置轮询
+            保存接口详细信息
+        """
         # 是否使用指定的gateway_name
-        if gateway_name==EMPTY_STRING:
+        if gateway_name == EMPTY_STRING:
             gatewayName = gatewayModule.gatewayName
         else:
             gatewayName = gateway_name
@@ -89,19 +101,25 @@ class MainEngine(object):
 
         # 设置接口轮询
         if gatewayModule.gatewayQryEnabled:
+            # setQryEnabled：设置是否要启动循环查询
             self.gatewayDict[gatewayName].setQryEnabled(gatewayModule.gatewayQryEnabled)
 
         # 保存接口详细信息
         d = {
-            'gatewayName': gatewayName,                         #gatewayModule.gatewayName,
-            'gatewayDisplayName': gatewayName,                  #gatewayModule.gatewayDisplayName,
+            'gatewayName': gatewayName,  # gatewayModule.gatewayName,
+            'gatewayDisplayName': gatewayName,  # gatewayModule.gatewayDisplayName,
             'gatewayType': gatewayModule.gatewayType
         }
         self.gatewayDetailList.append(d)
 
     # ----------------------------------------------------------------------
     def addApp(self, appModule):
-        """添加上层应用"""
+        """
+            ---添加上层应用
+            创建app实例
+            添加到主引擎
+            保存应用信息
+        """
         appName = appModule.appName
 
         # 创建应用实例
@@ -130,11 +148,14 @@ class MainEngine(object):
     # ----------------------------------------------------------------------
     def connect(self, gatewayName):
         """连接特定名称的接口"""
+        # 接口在接口实例字典中
         if gatewayName in self.gatewayDict:
             self.writeLog(u'vtEngine conncet :{}'.format(gatewayName))
             gateway = self.gatewayDict[gatewayName]
+            # 连接
             gateway.connect()
 
+            # 接口不在已连接的接口中
             if gatewayName not in self.connected_gw_names:
                 self.connected_gw_names.append(gatewayName)
 
@@ -145,18 +166,21 @@ class MainEngine(object):
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
             return False
 
-    def checkGatewayStatus(self,gatewayName):
-        """check gateway connect status"""
+    def checkGatewayStatus(self, gatewayName):
+        """检查接口连接状态"""
+        # 接口在接口实例字典中
         if gatewayName in self.gatewayDict:
             gateway = self.gatewayDict[gatewayName]
 
             # 借用检查网关状态来持久化合约数据
             self.save_contract_counter += 1
+            # 保存的合约计数器 > 60 and 数据引擎不为空
             if self.save_contract_counter > 60 and self.dataEngine is not None:
-
+                # saveContracts：保存所有合约对象到硬盘
                 self.dataEngine.saveContracts()
+                # 重置
                 self.save_contract_counter = 0
-
+            # 返回状态
             return gateway.checkStatus()
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
@@ -164,28 +188,32 @@ class MainEngine(object):
 
     def qryStatus(self):
         """查询Status"""
+        # 状态字典
         status_dict = OrderedDict()
 
-        # gateway Status
+        # 接口状态
         gw_status_dict = OrderedDict()
-        for k,g in self.gatewayDict.items():
+        for k, g in self.gatewayDict.items():
+            # 查询状态
             gw_status_dict[k] = g.checkStatus()
-        status_dict['gateways']=gw_status_dict
 
-        # ctaEngine Status
+        status_dict['gateways'] = gw_status_dict
+
+        # cta引擎状态
         if self.ctaEngine:
-            tick_dict,strategy_dict = self.ctaEngine.qryStatus()
-            status_dict['ticks']=tick_dict
+            # 查询ctaEngine的运行状态，返回最新tick字典，策略字典
+            tick_dict, strategy_dict = self.ctaEngine.qryStatus()
+            status_dict['ticks'] = tick_dict
             status_dict['strategies'] = strategy_dict
 
-        # cpu/mem status
+        # cpu/mem 状态
         cpuPercent = psutil.cpu_percent()
         memoryPercent = psutil.virtual_memory().percent
-        server_info_dict = {'cpu':cpuPercent, 'mem':memoryPercent}
+        server_info_dict = {'cpu': cpuPercent, 'mem': memoryPercent}
         status_dict['server'] = server_info_dict
-#
+        # 状态事件
         event = vn_event(type_=EVENT_STATUS)
-        event.dict_['data']= status_dict
+        event.dict_['data'] = status_dict
         self.eventEngine.put(event)
 
         return True
@@ -195,11 +223,14 @@ class MainEngine(object):
         """订阅特定接口的行情"""
         # 处理没有输入gatewayName的情况
         if gatewayName is None or len(gatewayName) == 0:
+            # 已连接的接口数 == 0
             if len(self.connected_gw_names) == 0:
                 self.writeError(u'vtEngine.subscribe, no connected gateway')
                 return
+            # 遍历已连接的接口
             for gw_name in self.connected_gw_names:
                 gateway = self.gatewayDict[gw_name]
+                # 订阅行情
                 gateway.subscribe(subscribeReq)
             return
 
@@ -208,34 +239,40 @@ class MainEngine(object):
             gateway.subscribe(subscribeReq)
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
-        
+
     # ----------------------------------------------------------------------
     def sendOrder(self, orderReq, gatewayName):
         """对特定接口发单"""
-        # 如果风控检查失败则不发单
+        # 如果检查风险失败则不发单
         if self.rmEngine and not self.rmEngine.checkRisk(orderReq):
-            self.writeCritical(u'风控检查不通过,gw:{},{} {} {} p:{} v:{}'.format(gatewayName, orderReq.direction, orderReq.offset, orderReq.symbol, orderReq.price, orderReq.volume))
-            return ''
-
-        if self.rmEngine and self.rmEngine.active\
-                and self.dataEngine and \
-                self.dataEngine.check_self_trade_risk(vtSymbol=orderReq.symbol,direction=orderReq.direction, price=orderReq.price, gatewayName=gatewayName):
             self.writeCritical(
-                u'自成交检查不通过,gw:{},{} {} {} p:{} v:{}'.format(gatewayName, orderReq.direction, orderReq.offset,
+                u'风控检查不通过,gw:{},{} {} {} p:{} v:{}'.format(gatewayName, orderReq.direction, orderReq.offset,
                                                            orderReq.symbol, orderReq.price, orderReq.volume))
             return ''
 
+        # 检查风控引擎状态、数据引擎检查自成交
+        if self.rmEngine and self.rmEngine.active \
+                and self.dataEngine and \
+                self.dataEngine.check_self_trade_risk(vtSymbol=orderReq.symbol, direction=orderReq.direction,
+                                                      price=orderReq.price, gatewayName=gatewayName):
+            self.writeCritical(
+                u'自成交检查不通过,gw:{},{} {} {} p:{} v:{}'.format(gatewayName, orderReq.direction, orderReq.offset,
+                                                            orderReq.symbol, orderReq.price, orderReq.volume))
+            return ''
+
+        # 调用特定接口发单
         if gatewayName in self.gatewayDict:
             gateway = self.gatewayDict[gatewayName]
             return gateway.sendOrder(orderReq)
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
-    
+
     # ----------------------------------------------------------------------
     def cancelOrder(self, cancelOrderReq, gatewayName):
         """对特定接口撤单"""
         if gatewayName in self.gatewayDict:
             gateway = self.gatewayDict[gatewayName]
+            # 调用特定接口撤单
             gateway.cancelOrder(cancelOrderReq)
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
@@ -245,11 +282,12 @@ class MainEngine(object):
         """查询特定接口的账户"""
         if gatewayName in self.gatewayDict:
             gateway = self.gatewayDict[gatewayName]
+            # 查询特定接口的账户
             gateway.qryAccount()
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
 
-    def getAccountInfo(self,gatewayName=None):
+    def getAccountInfo(self, gatewayName=None):
         """读取风控的账号与仓位数据
         # Added by IncenseLee
         仅支持一个账号。不支持多账号
@@ -259,11 +297,12 @@ class MainEngine(object):
         if gatewayName is None and len(self.connected_gw_names) > 1:
             raise ValueError(u'多个网关连接，须指明gateway_name参数')
         if self.rmEngine:
+            # 获取当前账号的权益、可用资金、当前仓位比例, 投资仓位比例上限，仅支持1个账号
             return self.rmEngine.getAccountInfo()
         else:
             return 0, 0, 0, 0
 
-    def qryAccountNo(self,gatewayName):
+    def qryAccountNo(self, gatewayName):
         """
          根据gateway名称，返回账号
         :param gatewayName: 
@@ -275,25 +314,27 @@ class MainEngine(object):
                 return copy.copy(gateway.accountID)
 
         return gatewayName
+
     # ----------------------------------------------------------------------
     def qryPosition(self, gatewayName):
         """查询特定接口的持仓"""
         if gatewayName in self.gatewayDict:
             gateway = self.gatewayDict[gatewayName]
+            # 查询特定接口的持仓
             gateway.qryPosition()
         else:
             self.writeLog(text.GATEWAY_NOT_EXIST.format(gateway=gatewayName))
-        
+
     # ----------------------------------------------------------------------
     def exit(self):
-        """退出程序前调用，保证正常退出"""        
+        """退出程序前调用，保证正常退出"""
         # 安全关闭所有接口
         for gateway in list(self.gatewayDict.values()):
             gateway.close()
-        
+
         # 停止事件引擎
-        self.eventEngine.stop()      
-        
+        self.eventEngine.stop()
+
         # 停止数据记录引擎
         if self.drEngine:
             self.drEngine.stop()
@@ -309,6 +350,7 @@ class MainEngine(object):
                 if gateway_name in self.gatewayDict:
                     self.writeLog(u'获取{} gateway'.format(gateway_name))
                     gateway = self.gatewayDict[gateway_name]
+                    # 关闭
                     gateway.close()
                     if gateway_name in self.connected_gw_names:
                         self.writeLog(u'移除connected_gw_names[{}]'.format(gateway_name))
@@ -324,7 +366,7 @@ class MainEngine(object):
             return True
 
         except Exception as ex:
-            print( u'vtEngine.disconnect Exception:{0} '.format(str(ex)))
+            print(u'vtEngine.disconnect Exception:{0} '.format(str(ex)))
             return False
 
     # ----------------------------------------------------------------------
@@ -332,7 +374,7 @@ class MainEngine(object):
         """快速发出日志事件"""
         log = VtLogData()
         log.logContent = content
-        event = vn_event(type_ = EVENT_LOG)
+        event = vn_event(type_=EVENT_LOG)
         event.dict_['data'] = log
         self.eventEngine.put(event)
 
@@ -357,7 +399,7 @@ class MainEngine(object):
 
         filename = os.path.abspath(os.path.join(path, 'vnpy'))
 
-        print( u'create logger:{}'.format(filename))
+        print(u'create logger:{}'.format(filename))
         self.logger = setup_logger(filename=filename, name='vnpy', debug=True)
 
     # ----------------------------------------------------------------------
@@ -390,7 +432,7 @@ class MainEngine(object):
         if self.logger is not None:
             self.logger.warning(content)
         else:
-            print(content,file=sys.stderr)
+            print(content, file=sys.stderr)
             self.createLogger()
 
         # 发出邮件
@@ -444,11 +486,11 @@ class MainEngine(object):
         if not self.dbClient:
             # 读取MongoDB的设置
             host, port, logging = loadMongoSetting()
-                
+
             try:
                 # 设置MongoDB操作的超时时间为0.5秒
                 self.dbClient = MongoClient(host, port, connectTimeoutMS=500)
-                
+
                 # 调用server_info查询服务器状态，防止服务器异常并未连接成功
                 self.dbClient.server_info()
 
@@ -457,7 +499,7 @@ class MainEngine(object):
                 self.db_has_connected = True
 
                 # 如果启动日志记录，则注册日志事件监听函数
-                #if logging:
+                # if logging:
                 #    self.eventEngine.register(EVENT_LOG, self.dbLogging)
 
             except ConnectionFailure:
@@ -465,7 +507,6 @@ class MainEngine(object):
                 self.writeError(text.DATABASE_CONNECTING_FAILED)
                 self.db_has_connected = False
 
-    
     # ----------------------------------------------------------------------
     def dbInsert(self, dbName, collectionName, d):
         """向MongoDB中插入数据，d是具体数据"""
@@ -495,7 +536,7 @@ class MainEngine(object):
         except Exception as ex:
             self.writeError(u'dbInsert exception:{}'.format(str(ex)))
 
-    def dbInsertMany(self,dbName, collectionName, data_list,ordered=True):
+    def dbInsertMany(self, dbName, collectionName, data_list, ordered=True):
         """
         向MongoDB中插入数据，data_list是具体数据 列表
         :param dbName:
@@ -504,14 +545,14 @@ class MainEngine(object):
         :param ordered: 是否忽略insert error
         :return:
         """
-        if not isinstance(data_list,list):
+        if not isinstance(data_list, list):
             self.writeLog(text.DATA_INSERT_FAILED)
             return
         try:
             if self.dbClient:
                 db = self.dbClient[dbName]
                 collection = db[collectionName]
-                collection.insert_many(data_list, ordered = ordered)
+                collection.insert_many(data_list, ordered=ordered)
             else:
                 self.writeLog(text.DATA_INSERT_FAILED)
                 if self.db_has_connected:
@@ -541,7 +582,7 @@ class MainEngine(object):
                 if cursor:
                     return list(cursor)
                 else:
-                        return []
+                    return []
             else:
                 self.writeLog(text.DATA_QUERY_FAILED)
                 if self.db_has_connected:
@@ -596,7 +637,8 @@ class MainEngine(object):
             self.writeError(u'dbQueryBySort exception:{}'.format(str(ex)))
 
         return []
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     def dbUpdate(self, dbName, collectionName, d, flt, upsert=False):
         """向MongoDB中更新数据，d是具体数据，flt是过滤条件，upsert代表若无是否要插入"""
         try:
@@ -622,7 +664,7 @@ class MainEngine(object):
         except Exception as ex:
             self.writeError(u'dbUpdate exception:{}'.format(str(ex)))
 
-    def dbDelete(self,dbName, collectionName, flt):
+    def dbDelete(self, dbName, collectionName, flt):
         """
         向mongodb中，删除数据，flt是过滤条件
         :param dbName:
@@ -652,7 +694,7 @@ class MainEngine(object):
         except Exception as ex:
             self.writeError(u'dbDelete exception:{}'.format(str(ex)))
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def dbLogging(self, event):
         """向MongoDB中插入日志"""
         log = event.dict_['data']
@@ -662,23 +704,23 @@ class MainEngine(object):
             'gateway': log.gatewayName
         }
         self.dbInsert(LOG_DB_NAME, self.todayDate, d)
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     def getContract(self, vtSymbol):
         """查询合约"""
         return self.dataEngine.getContract(vtSymbol)
 
-    #----------------------------------------------------------------------
+    # ----------------------------------------------------------------------
     def getAllContracts(self):
         """查询所有合约（返回列表）"""
         return self.dataEngine.getAllContracts()
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     def getOrder(self, vtOrderID):
         """查询委托"""
         return self.dataEngine.getOrder(vtOrderID)
-    
-    #----------------------------------------------------------------------
+
+    # ----------------------------------------------------------------------
     def getAllWorkingOrders(self):
         """查询所有的活跃的委托（返回列表）"""
         return self.dataEngine.getAllWorkingOrders()
@@ -716,31 +758,33 @@ class MainEngine(object):
         if self.ctaEngine:
             self.ctaEngine.saveStrategyData()
 
-    def initStrategy(self,name, force = False):
+    def initStrategy(self, name, force=False):
         if not self.ctaEngine:
             self.writeError(u'Cta Engine not started')
             return
         self.ctaEngine.initStrategy(name=name, force=force)
         self.qryStatus()
 
-    def startStrategy(self,name):
+    def startStrategy(self, name):
         if not self.ctaEngine:
             self.writeError(u'Cta Engine not started')
             return
         self.ctaEngine.startStrategy(name=name)
         self.qryStatus()
 
-    def stopStrategy(self,name):
+    def stopStrategy(self, name):
         if not self.ctaEngine:
             self.writeError(u'Cta Engine not started')
             return
         self.ctaEngine.stopStrategy(name=name)
         self.qryStatus()
 
+
 ########################################################################
 class DataEngine(object):
     """数据引擎"""
     contractFileName = 'ContractData.vt'
+    # 获取存放临时文件的路径
     contractFilePath = getTempPath(contractFileName)
 
     # ----------------------------------------------------------------------
@@ -748,32 +792,32 @@ class DataEngine(object):
         """Constructor"""
         self.mainEngine = mainEngine
         self.eventEngine = eventEngine
-        
+
         # 保存合约详细信息的字典
         self.contractDict = {}
-        
+
         # 保存委托数据的字典
         self.orderDict = {}
-        
+
         # 保存活动委托数据的字典（即可撤销）
         self.workingOrderDict = {}
-        
+
         # 读取保存在硬盘的合约数据
         self.loadContracts()
-        
+
         # 注册事件监听
         self.registerEvent()
 
         # 已订阅合约代码
         self.subscribedSymbols = set()
-        
+
     # ----------------------------------------------------------------------
     def updateContract(self, event):
         """更新合约数据"""
         contract = event.dict_['data']
         self.contractDict[contract.vtSymbol] = contract
-        self.contractDict[contract.symbol] = contract       # 使用常规代码（不包括交易所）可能导致重复
-        
+        self.contractDict[contract.symbol] = contract  # 使用常规代码（不包括交易所）可能导致重复
+
     # ----------------------------------------------------------------------
     def getContract(self, vtSymbol):
         """查询合约对象"""
@@ -782,12 +826,12 @@ class DataEngine(object):
             return self.contractDict[vtSymbol]
         except KeyError:
             return None
-        
+
     # ----------------------------------------------------------------------
     def getAllContracts(self):
         """查询所有合约对象（返回列表）"""
         return list(self.contractDict.values())
-    
+
     # ----------------------------------------------------------------------
     def saveContracts(self):
         """保存所有合约对象到硬盘"""
@@ -795,7 +839,7 @@ class DataEngine(object):
         f = shelve.open(self.contractFilePath)
         f['data'] = self.contractDict
         f.close()
-    
+
     # ----------------------------------------------------------------------
     def loadContracts(self):
         """从硬盘读取合约对象"""
@@ -806,13 +850,13 @@ class DataEngine(object):
             for key, value in d.items():
                 self.contractDict[key] = value
         f.close()
-        
+
     # ----------------------------------------------------------------------
     def updateOrder(self, event):
         """更新委托数据"""
-        order = event.dict_['data']        
+        order = event.dict_['data']
         self.orderDict[order.vtOrderID] = order
-        
+
         # 如果订单的状态是全部成交或者撤销，则需要从workingOrderDict中移除
         if order.status in [STATUS_ALLTRADED, STATUS_REJECTED, STATUS_CANCELLED]:
             if order.vtOrderID in self.workingOrderDict:
@@ -821,7 +865,7 @@ class DataEngine(object):
         else:
             self.workingOrderDict[order.vtOrderID] = order
 
-    def check_self_trade_risk(self, vtSymbol, direction,  price, gatewayName):
+    def check_self_trade_risk(self, vtSymbol, direction, price, gatewayName):
         """
         检查自成交
         :param vtSymbol:
@@ -835,9 +879,10 @@ class DataEngine(object):
         try:
             if direction == DIRECTION_LONG:
                 for order in list(self.workingOrderDict.values()):
-                    if order.vtSymbol == vtSymbol and order.direction == DIRECTION_SHORT and order.gatewayName==gatewayName and order.price <= price:
+                    if order.vtSymbol == vtSymbol and order.direction == DIRECTION_SHORT and order.gatewayName == gatewayName and order.price <= price:
                         self.mainEngine.writeNotification(u'存在反向委托单:id:{},{},gw:{},order.price:{}<{}，有自成交风险'.
-                                                          format(order.vtOrderID,order.direction,order.gatewayName, order.price,price))
+                                                          format(order.vtOrderID, order.direction, order.gatewayName,
+                                                                 order.price, price))
                         return True
             elif direction == DIRECTION_SHORT:
                 for order in list(self.workingOrderDict.values()):
@@ -849,7 +894,8 @@ class DataEngine(object):
 
             return False
         except Exception as ex:
-            self.mainEngine.writeCritical(u'DataEngine check_self_trade_risk Exception:{} /{}'.format(str(ex),traceback.format_exc()))
+            self.mainEngine.writeCritical(
+                u'DataEngine check_self_trade_risk Exception:{} /{}'.format(str(ex), traceback.format_exc()))
             return False
 
     # ----------------------------------------------------------------------
@@ -859,19 +905,19 @@ class DataEngine(object):
             return self.orderDict[vtOrderID]
         except KeyError:
             return None
-    
+
     # ----------------------------------------------------------------------
     def getAllWorkingOrders(self):
         """查询所有活动委托（返回列表）"""
         return list(self.workingOrderDict.values())
-    
+
     # ----------------------------------------------------------------------
     def registerEvent(self):
         """注册事件监听"""
         self.eventEngine.register(EVENT_CONTRACT, self.updateContract)
         self.eventEngine.register(EVENT_ORDER, self.updateOrder)
         self.eventEngine.register(EVENT_POSITION, self.updatePosition)
-        
+
     def clearData(self):
         """清空数据"""
 
@@ -879,10 +925,9 @@ class DataEngine(object):
         self.workingOrderDict = {}
         self.subscribedSymbols.clear()
 
-    def updatePosition(self,event):
+    def updatePosition(self, event):
         """更新持仓信息"""
         # 在获取更新持仓信息时，自动订阅这个symbol
-        # 目的：1、
 
         position = event.dict_['data']
         symbol = position.symbol
@@ -897,9 +942,12 @@ class DataEngine(object):
         if symbol in self.subscribedSymbols:
             return
 
+        # 加入已订阅合约代码列表
         self.subscribedSymbols.add(symbol)
 
         gatewayName = position.gatewayName
+
+        # 查询合约对象
         contract = self.mainEngine.getContract(symbol)
 
         if not contract:
@@ -913,7 +961,7 @@ class DataEngine(object):
         req.currency = ''
         req.productClass = ''
 
+        # 订阅特定接口的行情
         self.mainEngine.subscribe(req, gatewayName)
 
         self.mainEngine.writeLog(u'自动订阅合约{0}'.format(symbol))
-
