@@ -53,13 +53,13 @@ class VtTickData(VtBaseData):
         self.lowerLimit = EMPTY_FLOAT  # 跌停价
 
         # 五档行情
-        self.bidPrice1 = EMPTY_FLOAT
+        self.bidPrice1 = EMPTY_FLOAT    # 买1价
         self.bidPrice2 = EMPTY_FLOAT
         self.bidPrice3 = EMPTY_FLOAT
         self.bidPrice4 = EMPTY_FLOAT
         self.bidPrice5 = EMPTY_FLOAT
 
-        self.askPrice1 = EMPTY_FLOAT
+        self.askPrice1 = EMPTY_FLOAT    # 卖1价
         self.askPrice2 = EMPTY_FLOAT
         self.askPrice3 = EMPTY_FLOAT
         self.askPrice4 = EMPTY_FLOAT

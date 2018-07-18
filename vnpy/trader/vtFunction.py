@@ -1,7 +1,19 @@
 # encoding: UTF-8
 
 """
-包含一些开发中常用的函数
+    ---包含一些开发中常用的函数
+    floatToStr：格式化显示浮点字符串
+    systemSymbolToVnSymbol：数字交易所合约symbol转化vnpy合约symbol
+    VnSymbolToSystemSymbol：vnpy合约转化至数字交易所合约
+    safeUnicode：检查接口数据潜在的错误，保证转化为的字符串正确
+    loadMongoSetting：载入MongoDB数据库的配置
+    todayDate：获取当前本机电脑时间的日期
+    loadIconPath：加载程序图标路径
+    getTempPath：获取存放临时文件的路径
+    getJsonPath：获取JSON配置文件的路径
+    save_df_to_excel：保存dataframe到execl
+    save_text_to_excel：保存文本文件到excel
+    save_images_to_excel：保存图形文件到excel
 """
 
 import os,sys
