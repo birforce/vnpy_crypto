@@ -1,12 +1,12 @@
 [
 	   {
-          "name": "S45_BINANCE_FCOIN",
-          "className": "Strategy45",
+          "name": "CrossMarketSpotArbitrageStrategyDonchian",
+          "className": "CrossMarketSpotArbitrageStrategyDonchian",
           "vtSymbol": "btc_usdt",
-          "master_exchange":"BINANCE",
-          "slave_exchange":"FCOIN",
-          "master_gateway":"BINANCE_2",
-          "slave_gateway":"FCOIN_3",
+          "slave_exchange":"OKEX",
+          "master_exchange":"GATEIO",
+          "slave_gateway":"OKEX_1",
+          "master_gateway":"GATEIO_1",
           "baseUpLine":10,
           "baseMidLine":0,
           "baseDnLine":-10,

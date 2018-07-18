@@ -160,9 +160,8 @@ class CmaEngine(object):
         req.productClass = ''
         req.currency = ''
 
-        # 设计为CTA引擎发出的委托只允许使用限价单
-        # modified by incense, 通过参数传递
-        req.priceType = priceType  # 价格类型
+        # 设计为CMA引擎发出的委托只允许使用限价单
+        req.priceType = priceType  # 下单类型
 
         # CTA委托类型映射
         if orderType == CTAORDER_BUY:
@@ -180,6 +179,7 @@ class CmaEngine(object):
             req.direction = DIRECTION_LONG
             req.offset = OFFSET_CLOSE
 
+        # 策略引擎调用主引擎下委托单
         vtOrderID = self.mainEngine.sendOrder(req, contract.gatewayName)  # 发单
 
         if vtOrderID is None or len(vtOrderID) == 0:
@@ -214,9 +214,9 @@ class CmaEngine(object):
         # 如果查询成功
         if order:
             # 2.检查是否报单（委托单）还有效，只有有效时才发出撤单指令
-            orderFinished = (order.status == STATUS_ALLTRADED or order.status == STATUS_CANCELLED)
-            # 不是执行状态或撤销状态
-            if not orderFinished:
+            isOrderValid = (order.status == STATUS_ALLTRADED or order.status == STATUS_CANCELLED)
+
+            if not isOrderValid:
                 # 撤单时传入的对象类VtCancelOrderReq
                 req = VtCancelOrderReq()
                 req.symbol = order.symbol
@@ -862,7 +862,7 @@ class CmaEngine(object):
             if strategy.forceTradingClose == False:
                 return RUNING
 
-            if strategy.trading:
+            if strategy.isTrading:
                 return FORCECLOSING
             else:
                 return FORCECLOSED
@@ -992,11 +992,11 @@ class CmaEngine(object):
             strategy = self.strategyDict[name]
 
             # 没有初始化
-            if not strategy.inited or force == True:
+            if not strategy.isInited or force == True:
                 # 调用策略的onInit方法
                 self.callStrategyFunc(strategy, strategy.onInit, force)
                 # strategy.onInit(force=force)
-                # strategy.inited = True
+                # strategy.isInited = True
             else:
                 self.writeCtaLog(u'请勿重复初始化策略实例：%s' % name)
         else:
@@ -1011,9 +1011,9 @@ class CmaEngine(object):
             strategy = self.strategyDict[name]
 
             # 3.判断策略是否运行
-            if strategy.inited and not strategy.trading:
+            if strategy.isInited and not strategy.isTrading:
                 # 4.设置运行状态
-                strategy.trading = True
+                strategy.isTrading = True
                 # 5.启动策略
                 self.callStrategyFunc(strategy, strategy.onStart)
         else:
@@ -1027,9 +1027,9 @@ class CmaEngine(object):
             strategy = self.strategyDict[name]
 
             # 3.停止交易
-            if strategy.trading:
+            if strategy.isTrading:
                 # 4.设置交易状态为False
-                strategy.trading = False
+                strategy.isTrading = False
                 # 5.调用策略的停止方法
                 self.callStrategyFunc(strategy, strategy.onStop)
 
@@ -1064,7 +1064,7 @@ class CmaEngine(object):
             self.writeCtaLog(u'将运行dict的策略{}关联移除'.format(strategy_name))
             self.strategyDict.pop(strategy_name, None)
 
-            strategy.trading = False
+            strategy.isTrading = False
 
             # 2、撤销所有委托单
             if hasattr(strategy, 'cancelAllOrders'):
@@ -1072,10 +1072,10 @@ class CmaEngine(object):
 
             # 3、将策略的持仓，登记在dispatch_long_pos/dispatch_short_pos,移除json文件
             # 策略的初始化状态，仓位、多仓、空仓不为空
-            if strategy.inited and strategy.position is not None and (
+            if strategy.isInited and strategy.position is not None and (
                     strategy.position.longPos != 0 or strategy.position.shortPos != 0):
                 # 设置初始化状态
-                strategy.inited = False
+                strategy.isInited = False
                 # 获取策略持仓
                 pos_list = strategy.getPositions()
                 self.writeCtaLog(u'被移除策略{}的持仓情况:{}'.format(strategy.name, pos_list))
@@ -1826,7 +1826,7 @@ class CmaEngine(object):
             strategy = self.strategyDict[name]
             pos_list = []
 
-            if strategy.inited:
+            if strategy.isInited:
                 # 有ctaPosition属性
                 if hasattr(strategy, 'position'):
                     # 多仓
@@ -1941,8 +1941,8 @@ class CmaEngine(object):
                 func()
         except Exception:
             # 停止策略，修改状态为未初始化
-            strategy.trading = False
-            strategy.inited = False
+            strategy.isTrading = False
+            strategy.isInited = False
 
             # 发出日志
             content = u'策略{}触发异常已停止.{}'.format(strategy.name, traceback.format_exc())
@@ -2039,7 +2039,7 @@ class CmaEngine(object):
                 continue
 
             # 3.判断策略是否运行
-            if strategy.inited and strategy.trading:
+            if strategy.isInited and strategy.isTrading:
 
                 try:
                     # 5.保存策略数据
