@@ -338,12 +338,12 @@ class CrossMarketSpotArbitrageStrategy(CmaTemplate):
         elif exchange_name == EXCHANGE_BINANCE:
             from vnpy.data.binance.binance_data import BinanceData
             ds = BinanceData(self)
-        # elif exchange_name == EXCHANGE_GATEIO:
-        #     from vnpy.data.gateio.gateio_data import GateioData
-        #     ds = GateioData(self)
-        # elif exchange_name == EXCHANGE_FCOIN:
-        #     from vnpy.data.fcoin.fcoin_data import FcoinData
-        #     ds = FcoinData(self)
+        elif exchange_name == EXCHANGE_GATEIO:
+            from vnpy.data.gateio.gateio_data import GateioData
+            ds = GateioData(self)
+        elif exchange_name == EXCHANGE_FCOIN:
+            from vnpy.data.fcoin.fcoin_data import FcoinData
+            ds = FcoinData(self)
 
         return ds
 
