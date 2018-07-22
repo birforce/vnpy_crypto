@@ -250,6 +250,9 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         elif exchange_name == EXCHANGE_GATEIO:
             from vnpy.data.gateio.gateio_data import GateioData
             ds = GateioData(self)
+        elif exchange_name == EXCHANGE_FCOIN:
+            from vnpy.data.fcoin.fcoin_data import FcoinData
+            ds = FcoinData(self)
 
         return ds
 
@@ -508,15 +511,17 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             self.writeCtaLog(u'待重开委托单:{}'.format(self.policy.uncomplete_orders))
 
         # 计算该bar上唐奇安通道的值
-        maxPriceDiff = sys.maxsize
-        minPriceDiff = -1 * sys.maxsize
+        lineBarLen = len(self.lineDiff.lineBar)
+        #self.writeCtaLog("len = ".lineBarLen)
+        maxPriceDiff = -1 * sys.maxsize
+        minPriceDiff = sys.maxsize
         # 对比前20个bar的close价格
-        for secondaryLineDiffIndex in range(len(self.lineDiff.lineBar) - 2, len(self.lineDiff.lineBar) - 21, -1):
+        for secondaryLineDiffIndex in range(lineBarLen - 2, lineBarLen - 21, -1):
             if secondaryLineDiffIndex < 0:
                 continue
-            if self.lineDiff.lineBar[secondaryLineDiffIndex].close < self.donchianLowerBand[-1]:
+            if self.lineDiff.lineBar[secondaryLineDiffIndex].close < minPriceDiff:
                 minPriceDiff = self.lineDiff.lineBar[secondaryLineDiffIndex].close
-            if self.lineDiff.lineBar[secondaryLineDiffIndex].close > self.donchianUpperBand[-1]:
+            if self.lineDiff.lineBar[secondaryLineDiffIndex].close > maxPriceDiff:
                 maxPriceDiff = self.lineDiff.lineBar[secondaryLineDiffIndex].close
         self.donchianUpperBand.append(maxPriceDiff)
         self.donchianLowerBand.append(minPriceDiff)
@@ -560,12 +565,13 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             if self.last_master_tick is not None:
 
                 # 检查两腿ticket时间是否一致（从交易所比对得最后一个ticket与主交易所比对得最后一个ticket的时间差 < 10秒）
-                if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 10:
+                # if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 10:
+                if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).minutes <= 10:
                     combinable = True
 
         # 不能合并，返回
         if not combinable:
-            return None, None, None
+            return None
 
         # 初始化价差Ticket数据（成交数据，五档行情，时间）
         spread_tick = CtaTickData()
@@ -659,7 +665,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         ##### 4.交易逻辑-----------------------------------------------------------
 
         # 首先检查是否是实盘运行还是数据预处理阶段
-        if not (self.isInited and len(self.lineDiff.lineMiddleBand) > 0):
+        if not self.isInited:
             return
 
         # 执行撤单逻辑（撤掉未完成的委托单）
@@ -670,7 +676,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         # 价差超过唐奇安通道上轨，预测其会回归中线=》高位卖出---------------------------
         # 价差ticket.卖价 > 1分钟价差K线唐奇安通道.上轨 和 比率ticket.卖价 >= 1.001
-        if spread_tick.bidPrice1 > self.donchianUpperBand[-1] \
+        if len(self.donchianUpperBand) > 0 \
+                and spread_tick.bidPrice1 > self.donchianUpperBand[-1] \
                 and self.last_master_tick.bidPrice1 / self.last_slave_tick.askPrice1 >= 1.001:
             self.writeCtaLog(u'Short Signal:{},sell master:{}/{}/{},buy slave:{}/{}/{}'
                              .format(spread_tick.bidPrice1,
@@ -686,7 +693,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         # 价差低于唐奇安通道下轨，预测其会回归中线=》低位买入---------------------------
         # spread_tick.买价 < 1分钟价差K线.下轨 和 ratio_tick.买价 <= 0.999
-        if spread_tick.askPrice1 < self.lineDiff.lineLowerBand[-1] \
+        if len(self.donchianLowerBand) > 0 \
+                and spread_tick.askPrice1 < self.donchianLowerBand[-1] \
                 and self.last_master_tick.askPrice1 / self.last_slave_tick.bidPrice1 <= 0.999:
             self.writeCtaLog(u'Buy Signal:{}, buy master:{}/{}/{}, sell slave:{}/{}/{}'
                              .format(spread_tick.askPrice1,
