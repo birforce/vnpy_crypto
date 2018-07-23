@@ -5,6 +5,7 @@ import sys
 import os
 from datetime import datetime, timedelta, date
 from time import sleep
+from collections import deque
 import copy
 import logging
 import traceback
@@ -171,8 +172,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         self.lineDiff = None  # M1价差K线
         self.lineMaster = None  # 主交易所币对M1k线
         self.lineSlave = None  # 从交易所币对M1k线
-        self.donchianUpperBand = []  # 唐奇安通道上轨
-        self.donchianLowerBand = []  # 唐奇安通道下轨
+        self.donchianUpperBand = deque(maxlen=20)  # 唐奇安通道上轨
+        self.donchianLowerBand = deque(maxlen=20)  # 唐奇安通道下轨
 
         self.logMsg = EMPTY_STRING  # 临时输出日志变量
 
@@ -551,7 +552,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             if self.last_slave_tick is not None:
 
                 # 检查两腿tick时间是否一致（主交易所比对得最后一个ticket与从交易所比对得最后一个ticket的时间差 < 10秒）
-                if 0 <= (self.last_master_tick.datetime - self.last_slave_tick.datetime).seconds <= 10:
+                # 暂时改成60s
+                if 0 <= (self.last_master_tick.datetime - self.last_slave_tick.datetime).seconds <= 60:
                     # 可以合并
                     combinable = True
 
@@ -565,8 +567,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             if self.last_master_tick is not None:
 
                 # 检查两腿ticket时间是否一致（从交易所比对得最后一个ticket与主交易所比对得最后一个ticket的时间差 < 10秒）
-                # if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 10:
-                if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).minutes <= 10:
+                # 暂时改成60s
+                if 0 <= (self.last_slave_tick.datetime - self.last_master_tick.datetime).seconds <= 60:
                     combinable = True
 
         # 不能合并，返回
@@ -689,7 +691,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             # 当前没有委托，没有未完成的订单，没有重新激活的订单
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.sell(self.inputOrderCount)  # 反套（卖出）
+                pass
+                # self.sell(self.inputOrderCount)  # 反套（卖出）
 
         # 价差低于唐奇安通道下轨，预测其会回归中线=》低位买入---------------------------
         # spread_tick.买价 < 1分钟价差K线.下轨 和 ratio_tick.买价 <= 0.999
@@ -706,7 +709,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             # 当前没有委托，没有未完成的订单，没有重新激活的订单
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.buy(self.inputOrderCount)  # 正套（买入）
+                pass
+                #self.buy(self.inputOrderCount)  # 正套（买入）
 
         self.update_pos_info()  # 更新主、从交易所持仓
         self.putEvent()  # 策略状态变化事件
