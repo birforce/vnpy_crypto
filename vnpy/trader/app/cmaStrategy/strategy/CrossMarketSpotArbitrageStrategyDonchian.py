@@ -116,7 +116,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
     author = u'李来佳，Wei Pan'
 
     # 策略在外部设置的参数
-    inputOrderCount = 0.001  # 下单手数，范围是1~100，步长为1，默认=1，
+    inputOrderCount = 1  # 下单手数，范围是1~100，步长为1，默认=1，
     minDiff = 0.01  # 商品的最小交易价格单位
     min_trade_size = 0.001  # 下单最小成交单位
 
