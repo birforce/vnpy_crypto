@@ -87,8 +87,12 @@ class BinanceGateway(VtGateway):
         if self.log_message:
             self.api_spot.DEBUG = True
 
-        self.api_spot.connect_Subpot(apiKey, secretKey)
-        self.api_spot.spotExchangeInfo()
+        try:
+            self.api_spot.connect_Subpot(apiKey, secretKey)
+            self.api_spot.spotExchangeInfo()
+        except Exception as ex:
+            self.writeError(u'BinanceGateway.connect 异常,请检查日志:{}'.format(str(ex)))
+            return
 
         for symbol_pair in self.auto_subscribe_symbol_pairs:
             self.writeLog(u'{}自动订阅现货合约:{}'.format(EXCHANGE_BINANCE, symbol_pair))
