@@ -1003,7 +1003,8 @@ BREAK
                     trade.direction = DIRECTION_LONG if use_order.get('side', None) == 'BUY' else DIRECTION_SHORT
                     trade.offset = OFFSET_OPEN if use_order.get('side', None) == 'BUY' else OFFSET_CLOSE
                     trade.exchange = EXCHANGE_BINANCE
-                    trade.tradeTime = time.localtime(int(use_order.get('updateTime', '')))
+                    # TODO(hancong): 这是一个时间戳，还要变为时间格式
+                    trade.tradeTime = use_order.get('updateTime', '')
 
                     self.gateway.onTrade(trade)
 
