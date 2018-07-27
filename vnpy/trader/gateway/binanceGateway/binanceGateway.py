@@ -987,6 +987,26 @@ BREAK
                     
                     self.gateway.onOrder(order)
 
+                elif status == "FILLED":
+                    trade = VtTradeData()
+                    trade.gatewayName = self.gatewayName
+                    trade.symbol = '.'.join([use_order.get('symbol', ''), trade.gatewayName])
+                    trade.vtSymbol = trade.symbol
+
+                    trade.tradeID = use_order.get('orderId', 0)
+                    trade.vtTradeID = '.'.join([trade.gatewayName, str(trade.tradeID)])
+                    trade.orderID = use_order.get('orderId', 0)
+                    trade.vtOrderID = use_order.get('orderId', 0)
+
+                    trade.volume = float(use_order.get('executedQty', 0.0))
+                    trade.price = float(use_order.get('price', 0.0))
+                    trade.direction = DIRECTION_LONG if use_order.get('side', None) == 'BUY' else DIRECTION_SHORT
+                    trade.offset = OFFSET_OPEN if use_order.get('side', None) == 'BUY' else OFFSET_CLOSE
+                    trade.exchange = EXCHANGE_BINANCE
+                    trade.tradeTime = time.localtime(int(use_order.get('updateTime', '')))
+
+                    self.gateway.onTrade(trade)
+
     # ----------------------------------------------------------------------
     def cancel(self, req):
         localID = req.orderID

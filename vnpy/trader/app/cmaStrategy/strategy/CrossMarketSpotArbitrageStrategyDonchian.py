@@ -678,26 +678,29 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         short_signal = False
         buy_signal = False
 
-        # if self.master_position!=''  and self.slave_position !='':
-        #     #多头仓位：
-        #     if float(self.master_position) -float(self.slave_position) > self.inputOrderCount:
-        #         buy_signal= True
-        #     #空头仓位：
-        #     elif  float(self.slave_position)-float(self.master_position) > self.inputOrderCount:
-        #         short_signal = True
-        #     #没有仓位
-        #     else:
-        #         short_signal = False
-        #         buy_signal = False
+        if self.master_position!=''  and self.slave_position !='':
+            #多头仓位：
+            if float(self.master_position[5:10]) -float(self.slave_position[5:10]) > self.inputOrderCount:
+                buy_signal= True
+            #空头仓位：
+            elif  float(self.slave_position[5:10])-float(self.master_position[5:10]) > self.inputOrderCount:
+                short_signal = True
+            #没有仓位
+            else:
+                short_signal = False
+                buy_signal = False
 
         if len(self.donchianUpperBand) == 0 or len(self.donchianLowerBand) == 0:
             return
 
-        self.writeCtaLog(u'\n\n价差卖价:{}\n价差买价:{}\n\n唐其安上轨:{}\n唐其安下轨:{}\n\n{}持仓: {}\n{}持仓: {}\n\n '
+        self.writeCtaLog(u'\n\n\n\n\n价差卖价:{}\n价差买价:{}\n唐其安上轨:{}\n唐其安中轨:{}\n唐其安下轨:{}\nbuy_signal:{}\nshort_signal:{}\n{}持仓: {}\n{}持仓: {}\n\n '
                          .format(round(spread_tick.askPrice1, 6),
                                  round(spread_tick.bidPrice1, 6),
                                  round(self.donchianUpperBand[-1], 6),
+                                 round(((self.donchianUpperBand[-1] + self.donchianLowerBand[-1]) / 2), 6),
                                  round(self.donchianLowerBand[-1], 6),
+                                 buy_signal,
+                                 short_signal,
                                  self.master_gateway,
                                  self.master_position,
                                  self.slave_gateway,
@@ -739,7 +742,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
 
         #当持空仓，且下破中轨, 使用BUY指令平空。
-        if  spread_tick.bidPrice1 < (self.donchianUpperBand[-1] + self.donchianLowerBand[-1])/2 and short_signal == True:
+        if  spread_tick.askPrice1 < (self.donchianUpperBand[-1] + self.donchianLowerBand[-1])/2 and short_signal == True:
             self.writeCtaLog(u'持空仓，且下破中轨, 总仓位平空。master交易所买入 slave交易所卖出:价差{}, buy master:{}, sell slave:{}'
                              .format(spread_tick.askPrice1,
                                      self.last_master_tick.askPrice1,
