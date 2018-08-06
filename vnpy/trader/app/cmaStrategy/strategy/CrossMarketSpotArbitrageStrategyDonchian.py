@@ -17,7 +17,7 @@ import numpy
 from vnpy.trader.vtConstant import DIRECTION_LONG, DIRECTION_SHORT
 from vnpy.trader.vtConstant import PRICETYPE_LIMITPRICE, OFFSET_OPEN, OFFSET_CLOSE, STATUS_ALLTRADED, STATUS_CANCELLED, \
     STATUS_REJECTED
-from vnpy.trader.vtConstant import EXCHANGE_OKEX, EXCHANGE_BINANCE, EXCHANGE_GATEIO, EXCHANGE_FCOIN
+from vnpy.trader.vtConstant import EXCHANGE_OKEX, EXCHANGE_BINANCE, EXCHANGE_GATEIO, EXCHANGE_FCOIN, EXCHANGE_HUOBI
 from vnpy.trader.app.cmaStrategy.cmaTemplate import *
 from vnpy.trader.app.ctaStrategy.ctaLineBar import *
 from vnpy.trader.app.ctaStrategy.ctaGridTrade import *
@@ -116,9 +116,9 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
     author = u'比特量能'
 
     # 策略在外部设置的参数
-    inputOrderCount = 28  # 下单手数，范围是1~100，步长为1，默认=1，
-    minDiff = 0.0001  # 商品的最小交易价格单位
-    min_trade_size = 0.0001  # 下单最小成交单位
+    inputVolume = 28  # 下单手数，范围是1~100，步长为1，默认=1，
+    minPriceDiff = 0.0001  # 商品的最小交易价格单位
+    min_trade_volume = 0.0001  # 商品的下单最小成交单位
 
     # ----------------------------------------------------------------------
 
@@ -133,8 +133,8 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         # 调用父类构造器
         super(CrossMarketSpotArbitrageStrategyDonchian, self).__init__(cmaEngine, setting)
 
-        self.paramList.append('inputOrderCount')  # 下单范围
-        self.paramList.append('min_trade_size')  # 下单最小成交单位
+        self.paramList.append('inputVolume')  # 下单手数
+        self.paramList.append('min_trade_volume')  # 该商品下单最小成交单位
         self.varList.append('master_position')  # 主交易所交易货币仓位, master为主交易所
         self.varList.append('slave_position')  # 从交易所交易货币仓位， slave为次交易所
 
@@ -177,9 +177,6 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         self.logMsg = EMPTY_STRING  # 临时输出日志变量
 
-        self.delayMission = []  # 延迟的任务
-        self.auto_fix_close_price = False  # 自动修正平仓价格
-
         self.save_orders = []  # 保存的委托单
         self.save_signals = OrderedDict()  # 任務字典？
 
@@ -191,7 +188,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             lineDiffSetting = {}
             lineDiffSetting['name'] = u'M1Diff'
             lineDiffSetting['barTimeInterval'] = 60  # bar時間間隔,60秒
-            lineDiffSetting['minDiff'] = self.minDiff  # 最小价差
+            lineDiffSetting['minPriceDiff'] = self.minPriceDiff  # 最小价差
             lineDiffSetting['shortSymbol'] = self.vtSymbol  # 商品短号
             lineDiffSetting['is_7x24'] = self.is_7x24
             self.lineDiff = CtaLineBar(self, self.onBarDiff, lineDiffSetting)  # M1价差K线：CtaLineBar对象
@@ -214,7 +211,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             lineMasterSetting['inputSkd'] = True
             lineMasterSetting['inputYb'] = True
             lineMasterSetting['mode'] = CtaLineBar.TICK_MODE
-            lineMasterSetting['minDiff'] = self.minDiff
+            lineMasterSetting['minPriceDiff'] = self.minPriceDiff
             lineMasterSetting['shortSymbol'] = self.vtSymbol
             lineMasterSetting['is_7x24'] = True
             self.lineMaster = CtaLineBar(self, self.onBarMaster, lineMasterSetting)  # 主交易货币对M1K线：CtaLineBar对象
@@ -228,7 +225,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             lineSlaveSetting['inputSkd'] = True
             lineSlaveSetting['inputYb'] = True
             lineSlaveSetting['mode'] = CtaLineBar.TICK_MODE
-            lineSlaveSetting['minDiff'] = self.minDiff
+            lineSlaveSetting['minPriceDiff'] = self.minPriceDiff
             lineSlaveSetting['shortSymbol'] = self.vtSymbol
             lineSlaveSetting['is_7x24'] = True
             self.lineSlave = CtaLineBar(self, self.onBarSlave, lineSlaveSetting)  # 从交易货币对M1K线：CtaLineBar对象
@@ -254,6 +251,9 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         elif exchange_name == EXCHANGE_FCOIN:
             from vnpy.data.fcoin.fcoin_data import FcoinData
             ds = FcoinData(self)
+        elif exchange_name == EXCHANGE_HUOBI:
+            from vnpy.data.huobi.huobi_data import HuobiData
+            ds = HuobiData(self)
 
         return ds
 
@@ -680,10 +680,10 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
         if self.master_position!=''  and self.slave_position !='':
             #多头仓位：
-            if float(self.master_position[5:10]) -float(self.slave_position[5:10]) > self.inputOrderCount:
+            if float(self.master_position[5:10]) -float(self.slave_position[5:10]) > self.inputVolume:
                 buy_signal= True
             #空头仓位：
-            elif  float(self.slave_position[5:10])-float(self.master_position[5:10]) > self.inputOrderCount:
+            elif  float(self.slave_position[5:10])-float(self.master_position[5:10]) > self.inputVolume:
                 short_signal = True
             #没有仓位
             else:
@@ -720,7 +720,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             # 当前没有委托，没有未完成的订单，没有重新激活的订单
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.sell(self.inputOrderCount)  # 反套（卖出）
+                self.sell(self.inputVolume)  # 反套（卖出）
                 short_signal = True
 
         # 价差低于唐奇安通道下轨，预测其会回归中线=》低位买入---------------------------
@@ -735,7 +735,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             # 当前没有委托，没有未完成的订单，没有重新激活的订单
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.buy(self.inputOrderCount)  # 正套（买入）
+                self.buy(self.inputVolume)  # 正套（买入）
                 buy_signal = True
 
         #----------------------------------------------------平仓逻辑--------------------------------------------------
@@ -749,7 +749,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
                                      self.last_slave_tick.bidPrice1))
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.buy(self.inputOrderCount)  # 正套（买入）
+                self.buy(self.inputVolume)  # 正套（买入）
 
 
 
@@ -763,7 +763,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
             # 当前没有委托，没有未完成的订单，没有重新激活的订单
             if self.master_entrust == 0 and self.slave_entrust == 0 and len(self.uncompletedOrders) == 0 and len(
                     self.policy.uncomplete_orders) == 0:
-                self.sell(self.inputOrderCount)  # 反套（卖出）
+                self.sell(self.inputVolume)  # 反套（卖出）
 
 
         self.update_pos_info()  # 更新主、从交易所持仓
@@ -801,18 +801,18 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         # 主交易所，买入base
         # sendOrder（主交易所币对，u'买入'，主交易所比对得最后一个tick.买价 + 商品的最小交易价格单位，委托数量）
         orderID = self.cmaEngine.sendOrder(self.master_symbol, CTAORDER_BUY,
-                                           self.last_master_tick.bidPrice1 + self.minDiff, volume, self)
+                                           self.last_master_tick.bidPrice1 + self.minPriceDiff, volume, self)
         # 如果委托单ID为空，报告异常
         if orderID is None or len(orderID) == 0:
             self.writeCtaLog(u'异常，{} 开多{}失败,price:{}，volume:{}'.format(self.master_gateway, self.master_symbol,
-                                                                       self.last_master_tick.bidPrice1 + self.minDiff,
+                                                                       self.last_master_tick.bidPrice1 + self.minPriceDiff,
                                                                        volume))
             return False
 
         # 属性
         order = {'SYMBOL': self.master_symbol, 'DIRECTION': DIRECTION_LONG,
                  'OFFSET': OFFSET_OPEN, 'Volume': volume,
-                 'Price': self.last_master_tick.bidPrice1 + self.minDiff, 'TradedVolume': EMPTY_FLOAT,
+                 'Price': self.last_master_tick.bidPrice1 + self.minPriceDiff, 'TradedVolume': EMPTY_FLOAT,
                  'OrderTime': self.curDateTime, 'Canceled': False}
         self.writeCtaLog(u'登记未成交委托:{}:{}'.format(orderID, order))
 
@@ -825,18 +825,18 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         # 从交易所，卖出base
         # 发送委托单（从交易所币对，u'卖出'，从交易所比对得最后一个tick.卖价 - 商品的最小交易价格单位，委托数量）
         orderID = self.cmaEngine.sendOrder(self.slave_symbol, CTAORDER_SELL,
-                                           self.last_slave_tick.askPrice1 - self.minDiff, volume, self)
+                                           self.last_slave_tick.askPrice1 - self.minPriceDiff, volume, self)
         # 如果委托单ID为空，报告异常
         if (orderID is None) or len(orderID) == 0:
             self.writeCtaLog(u'异常，{}卖出{}失败，price:{},volume:{}'.format(self.slave_gateway, self.slave_symbol,
-                                                                      self.last_slave_tick.askPrice1 - self.minDiff,
+                                                                      self.last_slave_tick.askPrice1 - self.minPriceDiff,
                                                                       volume))
             return False
 
         # 属性
         order = {'SYMBOL': self.slave_symbol, 'DIRECTION': DIRECTION_SHORT,
                  'OFFSET': OFFSET_CLOSE, 'Volume': volume,
-                 'Price': self.last_slave_tick.askPrice1 - self.minDiff, 'TradedVolume': EMPTY_FLOAT,
+                 'Price': self.last_slave_tick.askPrice1 - self.minPriceDiff, 'TradedVolume': EMPTY_FLOAT,
                  'OrderTime': self.curDateTime, 'Canceled': False}
 
         # 插入未完成委托到列表
@@ -880,17 +880,17 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         # 主交易所，卖出base
         # sendOrder（主交易所币对，u'卖出'，主交易所比对得最后一个tick的卖价 - 商品的最小交易价格单位，委托数量）
         orderID = self.cmaEngine.sendOrder(self.master_symbol, CTAORDER_SELL,
-                                           self.last_master_tick.askPrice1 - self.minDiff, volume, self)
+                                           self.last_master_tick.askPrice1 - self.minPriceDiff, volume, self)
 
         if orderID is None or len(orderID) == 0:
             self.writeCtaLog(u'异常，{} 卖出{}失败,price:{}，volume:{}'.format(self.master_gateway, self.master_symbol,
-                                                                       self.last_master_tick.askPrice1 - self.minDiff,
+                                                                       self.last_master_tick.askPrice1 - self.minPriceDiff,
                                                                        volume))
             return False
 
         order = {'SYMBOL': self.master_symbol, 'DIRECTION': DIRECTION_SHORT,
                  'OFFSET': OFFSET_CLOSE, 'Volume': volume,
-                 'Price': self.last_master_tick.askPrice1 - self.minDiff,
+                 'Price': self.last_master_tick.askPrice1 - self.minPriceDiff,
                  'TradedVolume': EMPTY_INT,
                  'OrderTime': self.curDateTime, 'Canceled': False}
         self.writeCtaLog(u'登记未成交委托:{}:{}'.format(orderID, order))
@@ -904,15 +904,15 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         # 从交易所，买入base
         # sendOrder（从交易所币对，u'买入'，从交易所比对得最后一个tick的买价 + 商品的最小交易价格单位，委托数量）
         orderID = self.cmaEngine.sendOrder(self.slave_symbol, CTAORDER_BUY,
-                                           self.last_slave_tick.bidPrice1 + self.minDiff, volume, self)
+                                           self.last_slave_tick.bidPrice1 + self.minPriceDiff, volume, self)
         if (orderID is None) or len(orderID) == 0:
             self.writeCtaLog(u'异常，{}买入{}失败，price:{},volume:{}'.format(self.slave_gateway, self.slave_symbol,
-                                                                      self.last_slave_tick.bidPrice1 + self.minDiff,
+                                                                      self.last_slave_tick.bidPrice1 + self.minPriceDiff,
                                                                       volume))
             return False
         order = {'SYMBOL': self.slave_symbol, 'DIRECTION': DIRECTION_LONG,
                  'OFFSET': OFFSET_OPEN, 'Volume': volume,
-                 'Price': self.last_slave_tick.bidPrice1 + self.minDiff,
+                 'Price': self.last_slave_tick.bidPrice1 + self.minPriceDiff,
                  'TradedVolume': EMPTY_INT,
                  'OrderTime': self.curDateTime, 'Canceled': False}
         self.writeCtaLog(u'登记未成交委托:{}:{}'.format(orderID, order))
@@ -980,7 +980,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
                 order['Canceled'] = True
 
                 # 委托数量 - 成交数量 > 2倍下单最小成交单位，即委托单可以重新下单
-                if order['Volume'] - order['TradedVolume'] > 2 * self.min_trade_size:
+                if order['Volume'] - order['TradedVolume'] > 2 * self.min_trade_volume:
 
                     # 待重开委托单字典加入此委托单
                     self.policy.uncomplete_orders.append(copy.copy(order))
@@ -998,7 +998,7 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
                     self.writeCtaLog(u'委托数量:{}，成交数量:{}，剩余数量:{},不足:{}，放弃重新下单'
                                      .format(order['Volume'], order['TradedVolume']
-                                             , order['Volume'] - order['TradedVolume'], 2 * self.min_trade_size))
+                                             , order['Volume'] - order['TradedVolume'], 2 * self.min_trade_volume))
 
     # 重新提交订单（遍历待重开委托单列表，对撤销的委托单追平买入/卖出，追平后重新提交委托单，移除待重开委托单）
     def resumbit_orders(self):
@@ -1016,11 +1016,11 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
                     # 卖出价格 = min(主交易所比对得最后一个tick.买价，主交易所比对得最后一个ticket.最后价格) - 商品的最小交易价格单位
                     # 价格低一点卖出
-                    sellPrice = min(self.last_master_tick.bidPrice1, self.last_master_tick.lastPrice) - self.minDiff
+                    sellPrice = min(self.last_master_tick.bidPrice1, self.last_master_tick.lastPrice) - self.minPriceDiff
                 else:
 
                     # 卖出价格 = min(从交易所比对得最后一个tick.买价，从交易所比对得最后一个ticket.最后价格) - 商品的最小交易价格单位
-                    sellPrice = min(self.last_slave_tick.bidPrice1, self.last_slave_tick.lastPrice) - self.minDiff
+                    sellPrice = min(self.last_slave_tick.bidPrice1, self.last_slave_tick.lastPrice) - self.minPriceDiff
 
                 # 委托单ID = sendOrder(委托单合约代码，u'卖出'，卖出价格，委托数量)
                 orderID = self.cmaEngine.sendOrder(order_symbol, CTAORDER_SELL, sellPrice, order_volume, self)
@@ -1054,12 +1054,12 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
 
                     # 买入价格 = max（主交易所比对得最后一个ticket.卖价，主交易所比对得最后一个ticket.最后价格）+ 商品的最小交易价格单位
                     # 价格高一点买入
-                    buyPrice = max(self.last_master_tick.askPrice1, self.last_master_tick.lastPrice) + self.minDiff
+                    buyPrice = max(self.last_master_tick.askPrice1, self.last_master_tick.lastPrice) + self.minPriceDiff
 
                 else:
 
                     # 买入价格 = max（从交易所比对得最后一个ticket.卖价，从交易所比对得最后一个ticket.最后价格）+ 商品的最小交易价格单位
-                    buyPrice = max(self.last_slave_tick.askPrice1, self.last_slave_tick.lastPrice) + self.minDiff
+                    buyPrice = max(self.last_slave_tick.askPrice1, self.last_slave_tick.lastPrice) + self.minPriceDiff
 
                 self.writeCtaLog(u'重新提交{0} {1}手开多单{2}'.format(order_symbol, order_volume, buyPrice))
 
