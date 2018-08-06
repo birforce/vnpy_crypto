@@ -1,12 +1,20 @@
 {
-    "commeent":"incense",
-    "apiKey": "xxx",
-    "secretKey": "xxx",
-    "trace": false,
-    "leverage": 10,
-    "spot_connect": true,
-    "futures_connect": true,
-    "log_message": true,
-    "symbol_pairs" : ["btc_usdt","eth_usdt","eos_usdt"],
-    "auto_subscribe":["btc_usdt","btc:this_week:10","btc:next_week:10"]
+  "comment": "incense",
+  "apiKey": "1d227a91-6640-4247-ab10-2892598db73d",
+  "secretKey": "4F84BEADCC38DBA1EC16824EBA3FF3FC",
+  "trace": false,
+  "leverage": 10,
+  "spot_connect": true,
+  "futures_connect": true,
+  "log_message": false,
+  "symbol_pairs": [
+    "btc_usdt",
+    "eth_usdt",
+    "eos_usdt"
+  ],
+  "auto_subscribe": [
+    "btc_usdt",
+    "eth_usdt",
+    "eos_usdt"
+  ]
 }

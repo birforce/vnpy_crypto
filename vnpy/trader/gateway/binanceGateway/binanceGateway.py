@@ -191,7 +191,7 @@ class BinanceGateway(VtGateway):
 
         print(u'{} error:{}'.format(self.gatewayName, content), file=sys.stderr)
 '''
-币安接口
+币安接口实现
 '''
 class BinanceApi(BinanceSpotApi):
     """Binance的API实现"""
@@ -215,7 +215,11 @@ class BinanceApi(BinanceSpotApi):
         self.tradedVolumeDict = {}              # key:localID, value:volume ,已经交易成功的数量
         self.tradeID = 0                        # 本地成交号
 
-        self.reqToLocalID = {}                  # req 跟 localID建立本地映射
+        # 记录已处理的Filled委托单，避免循环读取导致成交量不断累加
+        self.totalTrade = 0  # 临时记录总成交量
+        self.filledTrade = []  # 以处理的完成委托单
+
+        self.reqToLocalID = {}  # req 跟 localID建立本地映射
 
         self.tickDict = {}                      # key:symbol, value:tick
 
@@ -988,25 +992,33 @@ BREAK
                     self.gateway.onOrder(order)
 
                 elif status == "FILLED":
-                    trade = VtTradeData()
-                    trade.gatewayName = self.gatewayName
-                    trade.symbol = '.'.join([use_order.get('symbol', ''), trade.gatewayName])
-                    trade.vtSymbol = trade.symbol
+                    # 判断有无在列表中，无则记录
+                    if '.'.join([use_order.get('symbol', ''), self.gatewayName]) not in self.filledTrade:
+                        trade = VtTradeData()
+                        trade.gatewayName = self.gatewayName
+                        trade.symbol = '.'.join([use_order.get('symbol', ''), trade.gatewayName])
+                        trade.vtSymbol = trade.symbol
 
-                    trade.tradeID = use_order.get('orderId', 0)
-                    trade.vtTradeID = '.'.join([trade.gatewayName, str(trade.tradeID)])
-                    trade.orderID = use_order.get('orderId', 0)
-                    trade.vtOrderID = use_order.get('orderId', 0)
+                        trade.tradeID = use_order.get('orderId', 0)
+                        trade.vtTradeID = '.'.join([trade.gatewayName, str(trade.tradeID)])
+                        trade.orderID = use_order.get('orderId', 0)
+                        trade.vtOrderID = use_order.get('orderId', 0)
 
-                    trade.volume = float(use_order.get('executedQty', 0.0))
-                    trade.price = float(use_order.get('price', 0.0))
-                    trade.direction = DIRECTION_LONG if use_order.get('side', None) == 'BUY' else DIRECTION_SHORT
-                    trade.offset = OFFSET_OPEN if use_order.get('side', None) == 'BUY' else OFFSET_CLOSE
-                    trade.exchange = EXCHANGE_BINANCE
-                    # TODO(hancong): 这是一个时间戳，还要变为时间格式
-                    trade.tradeTime = use_order.get('updateTime', '')
+                        trade.volume = float(use_order.get('executedQty', 0.0))
+                        trade.price = float(use_order.get('price', 0.0))
+                        trade.direction = DIRECTION_LONG if use_order.get('side', None) == 'BUY' else DIRECTION_SHORT
+                        trade.offset = OFFSET_OPEN if use_order.get('side', None) == 'BUY' else OFFSET_CLOSE
+                        trade.exchange = EXCHANGE_BINANCE
+                        # TODO(hancong): 这是一个时间戳，还要变为时间格式
+                        trade.tradeTime = use_order.get('updateTime', '')
 
-                    self.gateway.onTrade(trade)
+                        self.gateway.onTrade(trade)
+
+                        # 记录加入列表
+                        self.filledTrade.append(trade.symbol)
+                        # 记录总成交量
+                        self.totalTrade += trade.volume
+                        self.writeLog('{}成交量:{} ,总成交量{}'.format(trade.tradeID, trade.volume, self.totalTrade))
 
     # ----------------------------------------------------------------------
     def cancel(self, req):
@@ -1020,7 +1032,6 @@ BREAK
             self.spotCancelOrder( use_symbol, systemID )
         else:
             self.cancelDict[localID] = req
-
 
     '''
     Response ACK:

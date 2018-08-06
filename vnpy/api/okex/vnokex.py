@@ -9,10 +9,21 @@ import traceback
 import websocket
 import requests
 import sys
+import ssl
 
 # API文档 https://github.com/okcoin-okex/OKEx.com-api-docs
 
 from vnpy.api.okex.okexData import SPOT_TRADE_SIZE_DICT,SPOT_REST_ERROR_DICT, FUTURES_ERROR_DICT
+
+    # 取消https的证书验证
+try:
+    _create_unverified_https_context = ssl._create_unverified_context()
+except AttributeError:
+    # Legacy Python that doesn't verify HTTPS certificates by default
+    pass
+else:
+    # Handle target environment that doesn't support HTTPS verification
+    ssl._create_default_https_context = _create_unverified_https_context
 
 # OKEX网站
 OKEX_USD_SPOT = 'wss://real.okex.com:10441/websocket'               # OKEX (币币交易）现货地址
@@ -28,7 +39,7 @@ SPOT_CURRENCY = ["usdt",
                  "bch",
                  "eos"]
 
-SPOT_SYMBOL_PAIRS = set(["ltc_btc",
+SPOT_SYMBOL_PAIRS = {"ltc_btc",
                          "eos_usdt",
                         "eth_btc",
                         "etc_btc",
@@ -49,7 +60,7 @@ SPOT_SYMBOL_PAIRS = set(["ltc_btc",
                         "qtum_usdt",
                         "hsr_usdt",
                         "neo_usdt",
-                        "gas_usdt"])
+                        "gas_usdt"}
 
 KLINE_PERIOD = ["1min","3min","5min","15min","30min","1hour","2hour","4hour","6hour","12hour","day","3day","week"]
 
@@ -60,7 +71,7 @@ CONTRACT_TYPE = ["this_week", "next_week", "quarter"]
 
 
 ########################################################################
-class OkexApi(object):    
+class OkexApi(object):
     """交易接口"""
 
     #----------------------------------------------------------------------
@@ -69,7 +80,7 @@ class OkexApi(object):
         self.host = ''          # 服务器
         self.apiKey = ''        # 用户名
         self.secretKey = ''     # 密码
-  
+
         self.ws = None          # websocket应用对象  现货对象
         self.thread = None      # 初始化线程
 
@@ -78,17 +89,17 @@ class OkexApi(object):
         """重新连接"""
         # 首先关闭之前的连接
         self.close()
-        
+
         # 再执行重连任务
-        self.ws = websocket.WebSocketApp(self.host, 
+        self.ws = websocket.WebSocketApp(self.host,
                                          on_message=self.onMessage,
                                          on_error=self.onError,
                                          on_close=self.onClose,
-                                         on_open=self.onOpen)        
-    
+                                         on_open=self.onOpen)
+
         self.thread = Thread(target=self.ws.run_forever)
         self.thread.start()
-    
+
     #----------------------------------------------------------------------
     def connect(self, apiKey, secretKey, trace=False):
         """
@@ -107,12 +118,12 @@ class OkexApi(object):
         websocket.enableTrace(trace)
 
         # 创建websocket，绑定本地回调函数 onMessage/onError/onClose/onOpen
-        self.ws = websocket.WebSocketApp(self.host, 
+        self.ws = websocket.WebSocketApp(self.host,
                                              on_message=self.onMessage,
                                              on_error=self.onError,
                                              on_close=self.onClose,
-                                             on_open=self.onOpen)        
-            
+                                             on_open=self.onOpen)
+
         self.thread = Thread(target=self.ws.run_forever)
         self.thread.start()
 
@@ -147,7 +158,7 @@ class OkexApi(object):
         :return:
         """
         print(u'vnokex.onMessage:{}'.format(evt))
-        
+
     #----------------------------------------------------------------------
     def onError(self, ws, evt):
         """
@@ -158,7 +169,7 @@ class OkexApi(object):
         """
         print(u'vnokex.onApiError:{}'.format(evt))
 
-        
+
     #----------------------------------------------------------------------
     def onClose(self, ws):
         """
@@ -167,7 +178,7 @@ class OkexApi(object):
         :return:
         """
         print(u'vnokex.onClose')
-        
+
     #----------------------------------------------------------------------
     def onOpen(self, ws):
         """
@@ -176,7 +187,7 @@ class OkexApi(object):
         :return:
         """
         print(u'vnokex.onOpen')
-        
+
     #----------------------------------------------------------------------
     def generateSign(self, params):
         """生成签名"""
@@ -195,16 +206,16 @@ class OkexApi(object):
         # 在参数字典中加上api_key和签名字段
         params['api_key'] = self.apiKey
         params['sign'] = self.generateSign(params)
-        
+
         # 生成请求
         d = {}
         d['event'] = 'addChannel'
-        d['channel'] = channel        
+        d['channel'] = channel
         d['parameters'] = params
-        
+
         # 使用json打包并发送
         j = json.dumps(d)
-        
+
         # 若触发异常则重连
         try:
             self.ws.send(j)
@@ -219,7 +230,7 @@ class OkexApi(object):
         d['event'] = 'addChannel'
         d['channel'] = channel
         j = json.dumps(d)
-        
+
         # 若触发异常则重连
         try:
             self.ws.send(j)
@@ -252,15 +263,15 @@ class OkexApi(object):
         params = {}
         params['api_key'] = self.apiKey
         params['sign'] = self.generateSign(params)
-        
+
         # 生成请求
         d = {}
         d['event'] = 'login'
         d['parameters'] = params
-        
+
         # 使用json打包并发送
         j = json.dumps(d)
-        
+
         # 若触发异常则重连
         try:
             self.ws.send(j)
@@ -338,7 +349,7 @@ class WsSpotApi(OkexApi):
             params['amount'] = str(amount)
 
         channel = 'ok_spot_order'
-        
+
         self.sendRequest(channel, params)
 
     #----------------------------------------------------------------------
@@ -353,11 +364,11 @@ class WsSpotApi(OkexApi):
         params = {}
         params['symbol'] = str(symbol)
         params['order_id'] = str(orderid)
-        
+
         channel = 'ok_spot_cancel_order'
 
         self.sendRequest(channel, params)
-    
+
     #----------------------------------------------------------------------
     def spotUserInfo(self):
         """
@@ -381,9 +392,9 @@ class WsSpotApi(OkexApi):
         params = {}
         params['symbol'] = str(symbol)
         params['order_id'] = str(orderid)
-        
+
         channel = 'ok_spot_orderinfo'
-        
+
         self.sendRequest(channel, params)
 
 
