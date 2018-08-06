@@ -36,6 +36,7 @@ EXCHANGE_OKEX = u'Okex'
 EXCHANGE_BINANCE = u'Binance'
 EXCHANGE_GATEIO = u'GateIo'
 EXCHANGE_FCOIN = u'FCoin'
+EXCHANGE_HUOBI = u'Huobi'
 
 from vnpy.trader.language import constant
 
