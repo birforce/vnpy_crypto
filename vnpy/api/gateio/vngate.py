@@ -14,10 +14,20 @@ import json
 import gzip, binascii, os
 import http.client as httplib
 import traceback
+import ssl
 
 from vnpy.trader.vtFunction import systemSymbolToVnSymbol , VnSymbolToSystemSymbol
 
 import json
+# 取消https的证书验证
+try:
+    _create_unverified_https_context = ssl._create_unverified_context()
+except AttributeError:
+    # Legacy Python that doesn't verify HTTPS certificates by default
+    pass
+else:
+    # Handle target environment that doesn't support HTTPS verification
+    ssl._create_default_https_context = _create_unverified_https_context
 
 API_QUERY_URL = 'data.gate.io'
 API_TRADE_URL = 'api.gate.io'

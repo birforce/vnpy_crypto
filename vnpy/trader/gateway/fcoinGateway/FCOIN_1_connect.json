@@ -1,0 +1,8 @@
+{
+	"accountID": "fcoin",
+    "accessKey": "xxx",
+    "secretKey": "xxx",
+    "interval": 6,
+    "log_message": true,
+    "auto_subscribe":["btc_usdt","eth_usdt","ft_usdt"]
+}
