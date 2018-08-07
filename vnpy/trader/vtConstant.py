@@ -25,11 +25,14 @@ DIRECTION_SHORT = u'DirectionShort'    # 做空
 
 # 交易属性
 PRICETYPE_LIMITPRICE = u'PriceTypeLimitPrice'
+PRICETYPE_MARKETPRICE = u'PriceTypeMarketPrice'
 OFFSET_OPEN = u'OffsetOpen'
 OFFSET_CLOSE = u'OffsetClose'
 STATUS_ALLTRADED = u'StatusAllTraded'
 STATUS_CANCELLED = u'StatusCancelled'
 STATUS_REJECTED = u'StatusRejected'
+STATUS_NOTTRADED = u'StatusNotTraded'
+STATUS_PARTTRADED = u'StatusPartTraded'
 
 # 交易所
 EXCHANGE_OKEX = u'Okex'
@@ -37,6 +40,7 @@ EXCHANGE_BINANCE = u'Binance'
 EXCHANGE_GATEIO = u'GateIo'
 EXCHANGE_FCOIN = u'FCoin'
 EXCHANGE_HUOBI = u'Huobi'
+EXCHANGE_BITMEX = u'Bitmex'
 
 from vnpy.trader.language import constant
 
