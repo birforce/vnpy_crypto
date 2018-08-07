@@ -1,0 +1,6 @@
+{
+	"apiKey": "xxx",
+	"apiSecret": "xxx",
+	"sessionCount": 3,
+	"symbols": ["XBTUSD", "EOSM18", "XRPM18"]
+}
