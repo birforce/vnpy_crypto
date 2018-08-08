@@ -26,12 +26,13 @@ from vnpy.trader.gateway import huobiGateway
 from vnpy.trader.gateway import gateioGateway
 from vnpy.trader.gateway import binanceGateway
 from vnpy.trader.gateway import fcoinGateway
+from vnpy.trader.gateway import bitmexGateway
 
 # 初始化的接口模块，以及其指定的名称,CTP是模块，value，是该模块下的多个连接配置文件,如 CTP_JR_connect.json    'CTP_Prod', 'CTP_JR', , 'CTP_JK', 'CTP_02'
 init_gateway_names = {'OKEX': ['OKEX_1'], 'HUOBI': ['HUOBI_1'], 'GATEIO': ['GATEIO_1'], 'FCOIN': ['FCOIN_1'],
-                      'BINANCE': ['BINANCE_1']}
+                      'BINANCE': ['BINANCE_1'], 'BITMEX': ['BITMEX_1']}
 gateway_model_dict = {'OKEX': okexGateway, 'HUOBI': huobiGateway, 'GATEIO': gateioGateway, 'FCOIN': fcoinGateway,
-                      'BINANCE': binanceGateway}
+                      'BINANCE': binanceGateway, 'BITMEX': bitmexGateway}
 
 from vnpy.trader.app import (cmaStrategy, riskManager, spreadTrading)
 
