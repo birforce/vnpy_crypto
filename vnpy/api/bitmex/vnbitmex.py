@@ -10,9 +10,8 @@ import traceback
 from queue import Queue, Empty
 from multiprocessing.dummy import Pool
 from time import time
-from urlparse import urlparse
+from urllib.parse import urlparse, urlencode
 from copy import copy
-from urllib import urlencode
 from threading import Thread
 
 from six.moves import input

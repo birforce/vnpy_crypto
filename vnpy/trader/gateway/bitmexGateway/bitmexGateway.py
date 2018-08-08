@@ -60,7 +60,7 @@ class BitmexGateway(VtGateway):
     def connect(self):
         """连接"""
         try:
-            f = file(self.filePath)
+            f = open(self.filePath, 'r')
         except IOError:
             log = VtLogData()
             log.gatewayName = self.gatewayName
@@ -330,7 +330,8 @@ class WebsocketApi(BitmexWebsocketApi):
         method = 'GET'
         path = '/realtime'
         msg = method + path + str(expires)
-        signature = hmac.new(self.apiSecret, msg, digestmod=hashlib.sha256).hexdigest()
+        msg = msg.encode('utf-8')
+        signature = hmac.new(self.apiSecret.encode('utf-8'), msg, digestmod=hashlib.sha256).hexdigest()
 
         req = {
             'op': 'authKey',
