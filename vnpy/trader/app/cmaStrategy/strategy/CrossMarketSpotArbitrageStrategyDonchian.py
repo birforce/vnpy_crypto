@@ -17,7 +17,7 @@ import numpy
 from vnpy.trader.vtConstant import DIRECTION_LONG, DIRECTION_SHORT
 from vnpy.trader.vtConstant import PRICETYPE_LIMITPRICE, OFFSET_OPEN, OFFSET_CLOSE, STATUS_ALLTRADED, STATUS_CANCELLED, \
     STATUS_REJECTED
-from vnpy.trader.vtConstant import EXCHANGE_OKEX, EXCHANGE_BINANCE, EXCHANGE_GATEIO, EXCHANGE_FCOIN, EXCHANGE_HUOBI
+from vnpy.trader.vtConstant import EXCHANGE_OKEX, EXCHANGE_BINANCE, EXCHANGE_GATEIO, EXCHANGE_FCOIN, EXCHANGE_HUOBI, EXCHANGE_BITMEX
 from vnpy.trader.app.cmaStrategy.cmaTemplate import *
 from vnpy.trader.app.ctaStrategy.ctaLineBar import *
 from vnpy.trader.app.ctaStrategy.ctaGridTrade import *
@@ -254,6 +254,9 @@ class CrossMarketSpotArbitrageStrategyDonchian(CmaTemplate):
         elif exchange_name == EXCHANGE_HUOBI:
             from vnpy.data.huobi.huobi_data import HuobiData
             ds = HuobiData(self)
+        elif exchange_name == EXCHANGE_BITMEX:
+            from vnpy.data.bitmex.bitmex_data import BitmexData
+            ds = BitmexData(self)
 
         return ds
 
