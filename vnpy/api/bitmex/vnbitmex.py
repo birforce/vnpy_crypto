@@ -97,10 +97,8 @@ class BitmexRestApi(object):
         resp = session.request(method, url, headers=header, params=params, data=postdict)
 
         # resp = requests.request(method, url, headers=header, params=params, data=postdict)
-
         code = resp.status_code
         d = resp.json()
-
         if code == 200:
             callback(d, reqid)
         else:
@@ -131,8 +129,9 @@ class BitmexRestApi(object):
             body = ''
 
         msg = method + '/api/v1' + path + str(expires) + body
-        signature = hmac.new(self.apiSecret, msg,
-                             digestmod=hashlib.sha256).hexdigest()
+        msg = msg.encode('utf-8')
+        signature = hmac.new(self.apiSecret.encode('utf-8'), msg, digestmod=hashlib.sha256).hexdigest()
+
         return signature
 
     # ----------------------------------------------------------------------
