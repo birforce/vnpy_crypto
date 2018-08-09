@@ -18,7 +18,7 @@ from math import pow
 from vnpy.api.bitmex import BitmexRestApi, BitmexWebsocketApi
 from vnpy.trader.vtGateway import *
 from vnpy.trader.vtFunction import getJsonPath, getTempPath
-
+from vnpy.trader.vtConstant import PRODUCT_FUTURES
 # 委托状态类型映射
 statusMapReverse = {}
 statusMapReverse['New'] = STATUS_NOTTRADED
@@ -83,8 +83,13 @@ class BitmexGateway(VtGateway):
             return
 
         # 创建行情和交易接口对象
-        self.restApi.connect(apiKey, apiSecret, sessionCount)
-        self.wsApi.connect(apiKey, apiSecret, symbols)
+        try:
+            self.restApi.connect(apiKey, apiSecret, sessionCount)
+            self.wsApi.connect(apiKey, apiSecret, symbols)
+        except Exception as ex:
+            self.writeError(u'BitmexGateway.创建行情和交易接口对象异常,请检查日志:{}'.format(str(ex)))
+            return
+
 
     # ----------------------------------------------------------------------
     def subscribe(self, subscribeReq):
@@ -186,9 +191,9 @@ class RestApi(BitmexRestApi):
         self.orderId += 1
         orderId = self.date + self.orderId
         vtOrderID = '.'.join([self.gatewayName, str(orderId)])
-
+        split_symbol = orderReq.symbol.split('.')[0]
         req = {
-            'symbol': orderReq.symbol,
+            'symbol': split_symbol,
             'side': directionMap[orderReq.direction],
             'ordType': priceTypeMap[orderReq.priceType],
             'price': orderReq.price,
@@ -196,7 +201,6 @@ class RestApi(BitmexRestApi):
             'clOrdID': str(orderId)
         }
         self.addReq('POST', '/order', self.onSendOrder, postdict=req)
-
         return vtOrderID
 
     # ----------------------------------------------------------------------
@@ -527,10 +531,18 @@ class WebsocketApi(BitmexWebsocketApi):
     # ----------------------------------------------------------------------
 
 
-def printDict(d):
-    """"""
-    print('-' * 30)
-    l = d.keys()
-    l.sort()
-    for k in l:
-        print(k, d[k])
+def test():
+    req = VtOrderReq()
+    req.symbol = 'XRPU18.Bitmex'  # 合约代码
+    req.price = 0.00005420  # 价格
+    req.volume = 1  # 数量
+    req.productClass = ''
+    req.direction = DIRECTION_LONG
+    req.priceType = PRICETYPE_LIMITPRICE
+
+    eve = EventEngine2()
+    vtg = VtGateway(eve, 'BITMEX_1')
+    bit = BitmexGateway(vtg)
+    r = RestApi(bit)
+    oid = r.sendOrder(req)
+    print('oid:{}'.format(oid))
