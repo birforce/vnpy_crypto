@@ -486,7 +486,7 @@ class CmaEngine(object):
             posBuffer = self.positionBufferDict.get(trade.vtSymbol, None)
             if not posBuffer:
                 # 创建一个持仓缓存对象
-                posBuffer = positionBufferDict()
+                posBuffer = PositionBuffer()
                 posBuffer.vtSymbol = trade.vtSymbol
                 # 插入持仓缓存字典中
                 self.positionBufferDict[trade.vtSymbol] = posBuffer
