@@ -10,7 +10,7 @@ from vnpy.trader.app.ctaStrategy.ctaBase import CtaBarData, CtaTickData
 from vnpy.trader.vtFunction import systemSymbolToVnSymbol
 
 period_list = ['1m', '5m', '1h', '1d']
-symbol_list = ['xbt_usd', 'eth_usd']
+symbol_list = ['XBTUSD', 'XRPU18']
 
 
 class BitmexData(object):
@@ -48,10 +48,9 @@ class BitmexData(object):
         """
         ret_bars = []
         symbol = symbol.upper()
-        symbol_pair = systemSymbolToVnSymbol(symbol)
 
-        if symbol_pair not in symbol_list:
-            msg = u'{} {}不在下载清单中'.format(datetime.now(), symbol_pair)
+        if symbol not in symbol_list:
+            msg = u'{} {}不在下载清单中'.format(datetime.now(), symbol)
             if self.strategy:
                 self.strategy.writeCtaError(msg)
             else:
@@ -65,7 +64,7 @@ class BitmexData(object):
         candleCount = 200
         url = u'https://www.bitmex.com/api/v1/trade/bucketed?binSize={}&partial=false&symbol={}&count={}&reverse=true'.format(period, symbol, candleCount)
 
-        self.writeLog('{}开始下载:{} {}数据.URL:{}'.format(datetime.now(), symbol_pair, period, url))
+        self.writeLog('{}开始下载:{} {}数据.URL:{}'.format(datetime.now(), symbol, period, url))
 
         content = None
         try:

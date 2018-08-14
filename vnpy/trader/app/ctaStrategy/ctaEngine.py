@@ -442,7 +442,11 @@ class CtaEngine(object):
             ctaTick = CtaTickData()
             d = ctaTick.__dict__
             for key in d.keys():
-                d[key] = tick.__getattribute__(key)
+                try:
+                    d[key] = tick.__getattribute__(key)
+                except:
+                    if key != 'datetime':
+                        self.writeCtaLog("missing key {} in tick.".format(key))
 
             if not ctaTick.datetime:
                 # 添加datetime字段
@@ -881,29 +885,8 @@ class CtaEngine(object):
         # 2.保存Tick映射关系（symbol <==> Strategy[] )
         # modifid by Incenselee 支持多个Symbol的订阅
         symbols = []
-        # 套利合约
-        if strategy.vtSymbol.find(' ') != -1:
-            # 排除SP SPC SPD
-            s = strategy.vtSymbol.split(' ')
-            if len(s) > 1:
-                arb_symbols = s[1]
-
-                # 只提取leg1合约
-                if arb_symbols.find('&') != -1:
-                    symbols = arb_symbols.split('&')
-                symbols.append(strategy.vtSymbol)
-            else:
-                symbols.append(s[0])
-        else:
-            symbols = strategy.vtSymbol.split(';')
-
-        # 判断是否有Leg1Symbol,Leg2Symbol 两个合约属性
-        if hasattr(strategy, 'Leg1Symbol'):
-            if strategy.Leg1Symbol not in symbols:
-                symbols.append(strategy.Leg1Symbol)
-        if hasattr(strategy, 'Leg2Symbol'):
-            if strategy.Leg2Symbol not in symbols:
-                symbols.append(strategy.Leg2Symbol)
+        symbolWithExchange = '.'.join([strategy.vtSymbol, strategy.exchange])
+        symbols.append(symbolWithExchange)
 
         for symbol in symbols:
             self.writeCtaLog(u'添加合约{}与策略{}的匹配目录'.format(symbol,strategy.name))
