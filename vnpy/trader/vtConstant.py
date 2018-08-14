@@ -22,6 +22,7 @@ FORCECLOSED = u'ForceClosed'    #:已经关闭
 # 交易方向
 DIRECTION_LONG = u'DirectionLong'      # 做多
 DIRECTION_SHORT = u'DirectionShort'    # 做空
+DIRECTION_NET = u'DirectionNet'
 
 # 交易属性
 PRICETYPE_LIMITPRICE = u'PriceTypeLimitPrice'
@@ -33,6 +34,9 @@ STATUS_CANCELLED = u'StatusCancelled'
 STATUS_REJECTED = u'StatusRejected'
 STATUS_NOTTRADED = u'StatusNotTraded'
 STATUS_PARTTRADED = u'StatusPartTraded'
+STATUS_UNKNOWN = u'Status_Unknown'
+
+GATEWAYTYPE_BTC = u'GatewayType_BTC'
 
 # 交易所
 EXCHANGE_OKEX = u'Okex'
