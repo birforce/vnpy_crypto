@@ -366,6 +366,7 @@ class WebsocketApi(BitmexWebsocketApi):
         date, time = str(d['timestamp']).split('T')
         tick.date = date.replace('-', '')
         tick.time = time.replace('Z', '')
+        tick.datetime = datetime.now()
 
         self.gateway.onTick(tick)
 
