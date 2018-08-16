@@ -70,7 +70,7 @@ def main():
 
     # 添加应用
     mainEngine.addApp(ctaStrategy)
-    mainEngine.addApp(riskManager)
+    #mainEngine.addApp(riskManager)
     mainEngine.addApp(spreadTrading)
 
     mainWindow = MainWindow(mainEngine, ee)
