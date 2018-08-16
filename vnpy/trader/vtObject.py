@@ -226,7 +226,7 @@ class VtErrorData(VtBaseData):
         self.errorMsg = EMPTY_UNICODE  # 错误信息
         self.additionalInfo = EMPTY_UNICODE  # 补充信息
 
-        self.errorTime = time.strftime('%X', time.localtime())  # 错误生成时间
+        self.errorTime = time.strftime('%x %X', time.localtime())  # 错误生成时间
 
 
 ########################################################################

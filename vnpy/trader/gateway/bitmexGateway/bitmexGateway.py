@@ -424,7 +424,7 @@ class WebsocketApi(BitmexWebsocketApi):
         trade.direction = directionMapReverse[d['side']]
         trade.price = d['lastPx']
         trade.volume = d['lastQty']
-        trade.tradeTime = d['timestamp'][0:10].replace('-', '')
+        trade.tradeTime = d['timestamp'][0:22].replace('T', '')
 
         self.gateway.onTrade(trade)
 
