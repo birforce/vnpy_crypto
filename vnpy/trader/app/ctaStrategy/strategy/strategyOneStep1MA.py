@@ -14,7 +14,9 @@ import talib
 import numpy as np
 
 from vnpy.trader.app.ctaStrategy.ctaBase import *
+from vnpy.trader.app.ctaStrategy.ctaBacktesting import BacktestingEngine
 from vnpy.trader.app.ctaStrategy.ctaLineBar import *
+from vnpy.trader.app.ctaStrategy.ctaEngine import *
 from vnpy.trader.app.ctaStrategy.ctaTemplate import CtaTemplate
 from vnpy.trader.vtConstant import EXCHANGE_OKEX, EXCHANGE_BINANCE, EXCHANGE_GATEIO, EXCHANGE_FCOIN, EXCHANGE_HUOBI, EXCHANGE_BITMEX
 
@@ -24,7 +26,7 @@ class OneStep1MAStrategy(CtaTemplate):
     author = u'比特量能'
 
     # 策略在外部设置的参数
-    inputVolume = 50  # 下单手数，范围是1~100，步长为1，默认=1
+    inputVolume = 10  # 下单手数，范围是1~100，步长为1，默认=1
     min_trade_volume = 0.0001  # 商品的下单最小成交单位
 
     # ----------------------------------------------------------------------
@@ -36,18 +38,16 @@ class OneStep1MAStrategy(CtaTemplate):
         self.gateway = u'BITMEX_1'
         self.vtSymbol = u'XBTUSD'
         self.vtSymbolWithExchange = '.'.join([self.vtSymbol, self.exchange])
-        self.quote_symbol = u'XRP'
-        self.base_symbol = u'BXT'
 
         self.paramList.append('inputVolume')  # 下单手数
         self.paramList.append('min_trade_volume')  # 该商品下单最小成交单位
         self.varList.append('position')  # 交易所交易货币仓位
 
         self.curDateTime = None  # 当前时间
-        self.curTick = None  # 当前Ticket
         self.is_7x24 = True
 
         self.exchange_position = EMPTY_STRING  # 交易所交易货币仓位
+        self.pos = EMPTY_INT  # 交易所交易货币仓位, 回测时用
 
         self.last_tick = None  # 交易所比对得最后一个ticket
         self.base_position = None  # 交易所交易主货币持仓
@@ -77,14 +77,16 @@ class OneStep1MAStrategy(CtaTemplate):
         """初始化策略（必须由用户继承实现）"""
         self.writeCtaLog(u'%s策略初始化' % self.name)
 
-        # 获取交易所数据源对象
-        ds = self.get_data_source(self.exchange)
-        # 返回交易所获得的1分钟Bar数据（合约代码；时间间隔：1分钟；主交易货币对M1K线.加入一个Bar）
-        line1MBarAvailabled, history_bars = ds.get_bars(self.vtSymbol, period='1m',
-                                                                  callback=self.lineM1.addBar)
+        line1MBarAvailabled = False
+        if not self.backtesting:
+            # 获取交易所数据源对象
+            ds = self.get_data_source(self.exchange)
+            # 返回交易所获得的1分钟Bar数据（合约代码；时间间隔：1分钟；主交易货币对M1K线.加入一个Bar）
+            line1MBarAvailabled, history_bars = ds.get_bars(self.vtSymbol, period='1m',
+                                                                    callback=self.lineM1.addBar)
 
         # 更新初始化标识和交易标识
-        if line1MBarAvailabled:
+        if line1MBarAvailabled or self.backtesting:
             self.isInited = True  # 策略初始化状态
             self.trading = True  # 交易状态
 
@@ -152,10 +154,18 @@ class OneStep1MAStrategy(CtaTemplate):
     # -------------------------------------------------------------
     # 当生成新的bar时判断是否交易
     def onBar(self, bar):
-        self.writeCtaLog("收到新Bar {}".format(self.lineM1.displayLastBar()))
+        # self.writeCtaLog("收到新Bar {}".format(self.lineM1.displayLastBar()))
 
         # 首先检查是否已经初始化策略
         if not self.isInited:
+            return
+
+        if self.backtesting:
+            self.lineM1.lineBar.append(bar)
+            # self.writeCtaLog("Bar的数量 {}".format(len(self.lineM1.lineBar)))
+
+        # 当没有足够数据时先返回
+        if len(self.lineM1.lineBar) < 2:
             return
 
         # 撤销未完成订单
@@ -167,29 +177,42 @@ class OneStep1MAStrategy(CtaTemplate):
         self.exchange_position = self.ctaEngine.posBufferDict.get(
             '.'.join([self.vtSymbol, self.exchange]),
             None)
-        self.writeCtaLog("Bar open:{}, close {}".format(self.lineM1.lineBar[-2].open, self.lineM1.lineBar[-2].close))
+
+        # self.writeCtaLog("Bar open:{}, close {}".format(self.lineM1.lineBar[-2].open, self.lineM1.lineBar[-2].close))
 
         # 交易逻辑
         # 当M1 K线为阳线时, tick来时平掉空单, 若没有多单则加一手多单
         if self.lineM1.lineBar[-2].close > self.lineM1.lineBar[-2].open:
-            self.writeCtaLog("阳线")
-            if self.exchange_position.longPosition < 0:
-                orderID = self.buy(self.last_tick.askPrice1, abs(self.exchange_position.longPosition))
+            # self.writeCtaLog("阳线")
+            if not self.backtesting:
+                if self.exchange_position.longPosition < 0:
+                    orderID = self.buy(self.last_tick.askPrice1, abs(self.exchange_position.longPosition))
 
-                self.orderList.append(orderID)
-            if self.exchange_position.longPosition == 0:
-                orderID = self.buy(self.last_tick.askPrice1, self.inputVolume)
-                self.orderList.append(orderID)
+                    self.orderList.append(orderID)
+                if self.exchange_position.longPosition == 0:
+                    orderID = self.buy(self.last_tick.askPrice1, self.inputVolume)
+                    self.orderList.append(orderID)
+            else:
+                if self.pos < 0:
+                    orderID = self.buy(self.lineM1.lineBar[-1].close, abs(self.pos))
+                if self.pos == 0:
+                    orderID = self.buy(self.lineM1.lineBar[-1].close, self.inputVolume)
 
         # 当M1 K线为阴线时, tick来时平掉多单, 若没有空单则加一手空单
         if self.lineM1.lineBar[-2].close < self.lineM1.lineBar[-2].open:
-            self.writeCtaLog("阴线")
-            if self.exchange_position.longPosition > 0:
-                orderID = self.sell(self.last_tick.bidPrice1, self.exchange_position.longPosition)
-                self.orderList.append(orderID)
-            if self.exchange_position.longPosition == 0:
-                orderID = self.sell(self.last_tick.bidPrice1, self.inputVolume)
-                self.orderList.append(orderID)
+            # self.writeCtaLog("阴线")
+            if not self.backtesting:
+                if self.exchange_position.longPosition > 0:
+                    orderID = self.sell(self.last_tick.bidPrice1, self.exchange_position.longPosition)
+                    self.orderList.append(orderID)
+                if self.exchange_position.longPosition == 0:
+                    orderID = self.sell(self.last_tick.bidPrice1, self.inputVolume)
+                    self.orderList.append(orderID)
+            else:
+                if self.pos > 0:
+                    orderID = self.sell(self.lineM1.lineBar[-1].close, self.pos)
+                if self.pos == 0:
+                    orderID = self.sell(self.lineM1.lineBar[-1].close, self.inputVolume)
 
         self.putEvent()  # 策略状态变化事件
 
@@ -220,3 +243,66 @@ class OneStep1MAStrategy(CtaTemplate):
     # 保存数据
     def saveData(self):
         pass
+
+
+# 从csv文件进行回测
+if __name__ == '__main__':
+    # 提供直接双击回测的功能
+    # 导入PyQt4的包是为了保证matplotlib使用PyQt4而不是PySide，防止初始化出错
+    from vnpy.trader.app.ctaStrategy.ctaBacktesting import *
+    from vnpy.trader.setup_logger import setup_logger
+
+    cta_engine_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    log_file_name = os.path.abspath(os.path.join(cta_engine_path, 'TestLogs',
+                                                  '{0}_{1}.log'.format(OneStep1MAStrategy.className,
+                                                                       datetime.now().strftime('%m%d_%H%M'))))
+    setup_logger(
+         filename=log_file_name,
+         debug=False)
+
+    # 创建回测引擎
+    engine = BacktestingEngine()
+    # 设置引擎的回测模式为bar
+    engine.setBacktestingMode(engine.BAR_MODE)
+
+    # 设置回测用的数据起始日期
+    engine.setStartDate('20180520')
+
+    # 设置回测用的数据结束日期
+    engine.setEndDate('20180521')
+
+    engine.setDatabase(dbName='VnTrader_1Min_Db',symbol='XBTUSD.Bitmex')
+
+    # 设置产品相关参数
+    engine.setSlippage(0)     # 1跳（0.1）2跳0.2
+    engine.setRate(float(0.002))    # 万1
+    engine.setSize(1)         # 合约大小
+
+    settings = {}
+    settings['vtSymbol'] = 'XBTUSD.Bitmex'
+    settings['symbol'] = 'XBTUSD.Bitmex'
+    settings['name'] = 'samho1'
+    settings['mode'] = 'bar'
+    settings['backtesting'] = True
+    settings['percentLimit'] = 100
+
+    # 在引擎中创建策略对象
+    engine.initStrategy(OneStep1MAStrategy, setting=settings)
+
+    # 使用简单复利模式计算
+    engine.usageCompounding = False     # True时，只针对FINAL_MODE有效
+
+    # 启用实时计算净值模式REALTIME_MODE / FINAL_MODE 回测结束时统一计算模式
+    engine.calculateMode = engine.FINAL_MODE
+    engine.initCapital = 100000      # 设置期初资金
+    engine.percentLimit = 100       # 设置资金使用上限比例(%)
+    engine.barTimeInterval = 300    # bar的周期秒数，用于csv文件自动减时间
+
+    # 开始跑回测
+    cta_engine_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    data_file = os.path.abspath(os.path.join(cta_engine_path, 'TestLogs','BNbtc_usdt.csv'))
+    engine.runBackTestingWithBarFile(data_file)
+    # engine.runBacktesting()
+
+    # 显示回测结果
+    engine.showBacktestingResult()
