@@ -1647,7 +1647,6 @@ class BacktestingEngine(object):
                 return
 
         print('回测结束')
-        a = 5
 
     #----------------------------------------------------------------------
     def runBacktestingWithMysql(self):
