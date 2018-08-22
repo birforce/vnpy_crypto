@@ -244,15 +244,6 @@ class OneStep1MAStrategy(CtaTemplate):
     def saveData(self):
         pass
 
-    # ------------------------------------------------------------------------
-    # 回测时更新仓位
-    def updatePositionWhenBacktesting(self, volume):
-        if not self.exchange_position:
-            self.exchange_position = PositionBuffer()  # 交易所交易货币仓位
-            self.exchange_position.vtSymbol = self.vtSymbolWithExchange
-
-        self.exchange_position.longPosition += volume
-
 
 # 从csv文件进行回测
 if __name__ == '__main__':
