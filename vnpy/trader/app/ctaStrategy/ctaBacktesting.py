@@ -1609,7 +1609,18 @@ class BacktestingEngine(object):
                 if 'trading_date' in row:
                     bar.tradingDay = row['trading_date']
                 else:
-                    bar.tradingDay = bar.date
+                    if bar.datetime.hour >=21 and not self.is_7x24:
+                        if bar.datetime.isoweekday() == 5:
+                            # 星期五=》星期一
+                            bar.tradingDay = (barEndTime + timedelta(days=3)).strftime('%Y-%m-%d')
+                        else:
+                            # 第二天
+                            bar.tradingDay = (barEndTime + timedelta(days=1)).strftime('%Y-%m-%d')
+                    elif bar.datetime.hour < 8 and bar.datetime.isoweekday() == 6 and not self.is_7x24:
+                        # 星期六=>星期一
+                        bar.tradingDay = (barEndTime + timedelta(days=2)).strftime('%Y-%m-%d')
+                    else:
+                        bar.tradingDay = bar.date
 
                 if not (bar.datetime < self.dataStartDate or bar.datetime >= self.dataEndDate):
                     print('datetime:{}'.format(bar.datetime))
