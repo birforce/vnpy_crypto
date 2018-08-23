@@ -172,6 +172,8 @@ class OneStep1MAStrategy(CtaTemplate):
         for orderID in self.orderList:
             self.cancelOrder(orderID)
         self.orderList = []
+        if self.backtesting:
+            self.ctaEngine.workingLimitOrderDict = OrderedDict()
 
         # 读交易所仓位
         self.exchange_position = self.ctaEngine.posBufferDict.get(
@@ -266,10 +268,10 @@ if __name__ == '__main__':
     engine.setBacktestingMode(engine.BAR_MODE)
 
     # 设置回测用的数据起始日期
-    engine.setStartDate('20180520')
+    engine.setStartDate('20180101')
 
     # 设置回测用的数据结束日期
-    engine.setEndDate('20180521')
+    engine.setEndDate('20180131')
 
     engine.setDatabase(dbName='VnTrader_1Min_Db',symbol='XBTUSD.Bitmex')
 
@@ -299,10 +301,10 @@ if __name__ == '__main__':
     engine.barTimeInterval = 300    # bar的周期秒数，用于csv文件自动减时间
 
     # 开始跑回测
-    cta_engine_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-    data_file = os.path.abspath(os.path.join(cta_engine_path, 'TestLogs','BNbtc_usdt.csv'))
-    engine.runBackTestingWithBarFile(data_file)
-    # engine.runBacktesting()
+    # cta_engine_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    # data_file = os.path.abspath(os.path.join(cta_engine_path, 'TestLogs','BNbtc_usdt.csv'))
+    # engine.runBackTestingWithBarFile(data_file)
+    engine.runBacktesting()
 
     # 显示回测结果
     engine.showBacktestingResult()
