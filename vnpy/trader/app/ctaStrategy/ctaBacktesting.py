@@ -1632,7 +1632,6 @@ class BacktestingEngine(object):
 
                     self.newBar(bar)
 
-
                 if not self.strategy.trading and self.strategyStartDate < bar.datetime:
                     self.strategy.trading = True
                     self.strategy.onStart()
@@ -1755,16 +1754,15 @@ class BacktestingEngine(object):
     # ----------------------------------------------------------------------
     def runHistoryDataFromMongo(self):
         """
-        根据测试的每一天，从MongoDB载入历史数据，并推送Tick至回测函数
+        根据测试的每一天，从MongoDB载入历史数据，并推送Bar至回测函数
         :return: 
         """
 
         host, port, log = loadMongoSetting()
 
         self.dbClient = pymongo.MongoClient(host, port)
-        collection = self.dbClient[self.dbName][self.symbol]
-
-        self.output(u'开始载入数据')
+        collection = self.dbClient[self.dbName][self.symbol.split('.')[0]]
+        self.output(u'开始载入回测数据')
 
         # 首先根据回测模式，确认要使用的数据类
         if self.mode == self.BAR_MODE:
@@ -1785,25 +1783,25 @@ class BacktestingEngine(object):
             return
 
         # 循环每一天
-        for i in range(0, testdays):
+        for i in range(0, testdays + 1):
             testday = self.dataStartDate + timedelta(days=i)
-            testday_monrning = testday  #testday.replace(hour=0, minute=0, second=0, microsecond=0)
-            testday_midnight = testday + timedelta(days=1) #testday.replace(hour=23, minute=59, second=59, microsecond=999999)
-
+            testday_monrning = testday.replace(hour=0, minute=0, second=0, microsecond=0)
+            testday_midnight = testday.replace(hour=23, minute=59, second=0, microsecond=0)
             query_time = datetime.now()
-            # 载入初始化需要用的数据
-            flt = {'datetime': {'$gte': testday_monrning,
-                                '$lt': testday_midnight}}
 
-            initCursor = collection.find(flt).sort('datetime', pymongo.ASCENDING)
+            # 载入初始化需要用的数据
+            initCursor = collection.find({'timestamp': {"$gte": str(testday_monrning), "$lt": str(testday_midnight)}})
 
             process_time = datetime.now()
             # 将数据从查询指针中读取出，并生成列表
             count_ticks = 0
 
-            for d in initCursor:
+            for dt in initCursor:
+                dt['vtSymbol'] = self.symbol
+                dt['symbol'] = self.symbol
+                dt['datetime'] = datetime.strptime(dt['timestamp'], '%Y-%m-%d %H:%M:%S')
                 data = dataClass()
-                data.__dict__ = d
+                data.__dict__ = dt
                 func(data)
                 count_ticks += 1
 
